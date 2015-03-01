@@ -1,6 +1,6 @@
 # Makefile for building the SweetSpot server
 
-SRC = app/src/main/java/com/sweetspot/server/SweetSpotServer.java app/src/main/java/com/sweetspot/shared/Metadata.java
+SRC = app/src/main/java/com/sweetspot/server/SweetSpotServer.java app/src/main/java/com/sweetspot/shared/Metadata.java app/src/main/java/com/sweetspot/shared/Definitions.java
 JAR = SweetSpotServer.jar
 LIB = jaudiotagger-2.2.3/jaudiotagger-2.2.3.jar
 

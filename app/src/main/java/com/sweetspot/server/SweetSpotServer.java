@@ -2,6 +2,9 @@ package com.sweetspot.server;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OptionalDataException;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -24,6 +27,8 @@ import org.jaudiotagger.tag.Tag;
 import org.jaudiotagger.tag.TagException;
 
 import com.sweetspot.shared.Metadata;
+import com.sweetspot.shared.Definitions;
+import com.sweetspot.shared.Definitions.TransactionType;
 
 /**
  * This is the server for SweetSpot. The server will run on a computer, and
@@ -34,11 +39,9 @@ import com.sweetspot.shared.Metadata;
  * @version 1.0
  */
 public class SweetSpotServer {
-	
-	/** Default variables */
-	private static final int DEFAULT_PORT = 30012;
-	private static final String DEFAULT_DIR = ".";
-	private static final String MUSICFILE_REGEX = ".*\\.(mp3|ogg|wav|flac)";
+
+    /** Default variables */
+    private static final String DEFAULT_DIR = ".";
 	
 	/** Global variables used by the server */
 	private static File music_dir;
@@ -52,7 +55,7 @@ public class SweetSpotServer {
 	public static void main(String[] args) {
 		
 		// Set the program defaults
-		int port = DEFAULT_PORT;
+		int port = Definitions.DEFAULT_PORT;
 		music_dir = new File(DEFAULT_DIR);
 		
 		// Sanitize the input
@@ -127,7 +130,7 @@ public class SweetSpotServer {
 		// Check all files and folders in this directory
 		for(File f : dir.listFiles()) {
 			// If the path represents a music file, gets its metadata
-			if(Pattern.matches(MUSICFILE_REGEX, f.getName())) {
+			if(Pattern.matches(Definitions.MUSICFILE_REGEX, f.getName())) {
 				Metadata m = generate_metadata(f);
 				if(m != null) {
 					file_map.put(f.getPath(), m);
@@ -236,6 +239,8 @@ public class SweetSpotServer {
 		
 		/** Variables used by the client handler */
 		Socket sock; // Communication socket
+        ObjectOutputStream objout;
+        ObjectInputStream objin;
 		
 		/**
 		 * Construct a new client handler
@@ -243,13 +248,58 @@ public class SweetSpotServer {
 		 */
 		public SweetSpotClientHandler(Socket s) {
 			sock = s;
+            try {
+                objout = new ObjectOutputStream(s.getOutputStream());
+                objin = new ObjectInputStream(s.getInputStream());
+            } catch(IOException e) {
+                e.printStackTrace();
+            }
 		}
 		
 		/**
 		 * Function that will run upon creation of new client handler
 		 */
 		public void run() {
-			// TODO
+			TransactionType t = null;
+            while(t != TransactionType.CLIENT_DISCONNECT) {
+
+                // Get a transaction type identifier from the client
+                try {
+                    t = null;
+                    t = (TransactionType) objin.readObject();
+                } catch(ClassNotFoundException e) {
+                    e.printStackTrace();
+                } catch(OptionalDataException e) {
+                    e.printStackTrace();
+                } catch(IOException e) {
+                    e.printStackTrace();
+                } catch(ClassCastException e) {
+                    e.printStackTrace();
+                } finally {
+                    if(t == null) {
+                        continue;
+                    }
+                }
+
+                // Decide what to do based on the request
+                try {
+                    switch (t) {
+                        case GET_METADATA:
+                            objout.writeObject(file_map);
+                            break;
+                        case GET_SONGFILE:
+                            // TODO
+                            break;
+                        case CLIENT_DISCONNECT:
+                            System.out.println("Client disconnected");
+                            break;
+                        default:
+                            System.out.println("Error: " + t);
+                    }
+                } catch(IOException e) {
+                    e.printStackTrace();
+                }
+            }
 		}
 	}
 }
