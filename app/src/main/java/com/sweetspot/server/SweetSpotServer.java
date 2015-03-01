@@ -1,5 +1,6 @@
 package com.sweetspot.server;
 
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -241,6 +242,7 @@ public class SweetSpotServer {
 		Socket sock; // Communication socket
         ObjectOutputStream objout;
         ObjectInputStream objin;
+        String client_name;
 		
 		/**
 		 * Construct a new client handler
@@ -254,6 +256,7 @@ public class SweetSpotServer {
             } catch(IOException e) {
                 e.printStackTrace();
             }
+            client_name = String.format("%s:%d", sock.getInetAddress(), sock.getPort());
 		}
 		
 		/**
@@ -267,18 +270,13 @@ public class SweetSpotServer {
                 try {
                     t = null;
                     t = (TransactionType) objin.readObject();
-                } catch(ClassNotFoundException e) {
+                    System.out.println("Received command: " + t);
+                } catch(EOFException e) {
+                    System.out.println("Client disconnected:\n\t" + client_name);
+                    return;
+                } catch(Exception e) {
                     e.printStackTrace();
-                } catch(OptionalDataException e) {
-                    e.printStackTrace();
-                } catch(IOException e) {
-                    e.printStackTrace();
-                } catch(ClassCastException e) {
-                    e.printStackTrace();
-                } finally {
-                    if(t == null) {
-                        continue;
-                    }
+                    return;
                 }
 
                 // Decide what to do based on the request
@@ -286,6 +284,7 @@ public class SweetSpotServer {
                     switch (t) {
                         case GET_METADATA:
                             objout.writeObject(file_map);
+                            objout.flush();
                             break;
                         case GET_SONGFILE:
                             // TODO
@@ -296,8 +295,9 @@ public class SweetSpotServer {
                         default:
                             System.out.println("Error: " + t);
                     }
-                } catch(IOException e) {
+                } catch(Exception e) {
                     e.printStackTrace();
+                    return;
                 }
             }
 		}

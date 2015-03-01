@@ -1,5 +1,7 @@
 package com.sweetspot.shared;
 
+import java.io.Serializable;
+
 /**
  * Created by andrew on 3/1/15.
  */
@@ -10,7 +12,7 @@ public class Definitions {
     public static final String MUSICFILE_REGEX = ".*\\.(mp3|ogg|wav|flac)";
 
     /** Enumeration of transaction types */
-    public enum TransactionType {
+    public enum TransactionType implements Serializable {
         GET_METADATA,
         GET_SONGFILE,
         CLIENT_DISCONNECT
