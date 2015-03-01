@@ -74,7 +74,6 @@ public class SweetSpotServer {
 						syntax_error_exit("Port out of range: " + port);
 					}
 				}
-				++i;
 				break;
 			case "-d":
 				// Specify a new directory
@@ -86,7 +85,6 @@ public class SweetSpotServer {
 						syntax_error_exit("Invalid path: " + args[i]);
 					}
 				}
-				++i;
 				break;
 			default:
 				syntax_error_exit("Invalid option: " + args[i]);
