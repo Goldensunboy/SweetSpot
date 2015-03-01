@@ -230,17 +230,19 @@ public class SweetSpotMain extends ActionBarActivity
                 song_list.add(m.title + " / " + m.artist);
             }
             ListView list = (ListView) findViewById(R.id.songListView);
-            list.setAdapter(new ArrayAdapter<String>(findViewById(R.id.drawer_layout).getContext(), R.layout.activity_sweet_spot_main, song_list));
-//            new AlertDialog.Builder(this_view)
-//                    .setTitle("Result")
-//                    .setMessage("Songs: " + file_map.size())
-//                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-//                        @Override
-//                        public void onClick(DialogInterface dialog, int which) {
-//
-//                        }
-//                    })
-//                    .show();
+            list.setAdapter(new ArrayAdapter<String>(this_view, android.R.layout.simple_list_item_1, song_list));
+            list.setFastScrollEnabled(true);
+
+            new AlertDialog.Builder(this_view)
+                    .setTitle("Result")
+                    .setMessage("Songs: " + file_map.size())
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+
+                        }
+                    })
+                    .show();
         }
     }
 }
