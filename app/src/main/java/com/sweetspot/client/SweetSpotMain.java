@@ -4,27 +4,17 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.support.v4.widget.DrawerLayout;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.TextView;
 
 import com.sweetspot.shared.Metadata;
 import com.sweetspot.shared.Definitions;
@@ -36,10 +26,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Scanner;
 
 import javax.net.SocketFactory;
@@ -98,7 +85,7 @@ public class SweetSpotMain extends ActionBarActivity {
 
     // Open the server list options
     public void openServerListOptions() {
-        Intent intent = new Intent(getApplicationContext(), ServerListActivity.class);
+        Intent intent = new Intent(getApplicationContext(), AddServerActivity.class);
         startActivity(intent);
     }
 
@@ -116,7 +103,6 @@ public class SweetSpotMain extends ActionBarActivity {
         actionBar.setTitle(mTitle);
     }
 
-
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
@@ -132,7 +118,8 @@ public class SweetSpotMain extends ActionBarActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
-            Intent intent = new Intent(getApplicationContext(), ServerListActivity.class);
+            //Intent intent = new Intent(getApplicationContext(), AddServerActivity.class);
+            Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
             startActivity(intent);
         }
 

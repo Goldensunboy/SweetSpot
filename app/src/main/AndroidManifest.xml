@@ -14,13 +14,16 @@
             android:label="SweetSpot" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         <activity
-            android:name=".ServerListActivity"
+            android:name=".AddServerActivity"
             android:label="@string/title_activity_server_list" >
+        </activity>
+        <activity
+            android:name=".SweetSpotPlayer"
+            android:label="Player" >
         </activity>
     </application>
 
