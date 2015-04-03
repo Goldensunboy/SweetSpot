@@ -3,6 +3,7 @@ package com.sweetspot.client;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -29,6 +30,8 @@ import com.sweetspot.shared.Metadata;
 import com.sweetspot.shared.Definitions;
 import com.sweetspot.shared.Definitions.TransactionType;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -37,81 +40,71 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Scanner;
 
 import javax.net.SocketFactory;
 
-public class SweetSpotMain extends ActionBarActivity
-        implements NavigationDrawerFragment.NavigationDrawerCallbacks {
-
-    /**
-     * Fragment managing the behaviors, interactions and presentation of the navigation drawer.
-     */
-    private NavigationDrawerFragment mNavigationDrawerFragment;
+public class SweetSpotMain extends ActionBarActivity {
 
     /**
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
     private CharSequence mTitle;
+    public static SweetSpotMain the_main_activity;
 
-    // Vars used for communication
+    // Mapping of song files onto their metadata
     private HashMap<String, Metadata> file_map = null;
-    private Socket sock = null;
-    private ObjectOutputStream objout;
-    private ObjectInputStream objin;
-    SweetSpotMain this_view = this;
 
-//    private void show_error(String error_msg) {
-//        AlertDialog.Builder b = new AlertDialog.Builder(this);
-//        b.setMessage(error_msg);
-//        b.setCancelable(true);
-//        b.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-//            @Override
-//            public void onClick(DialogInterface dialog, int which) {
-//                dialog.cancel();
-//            }
-//        });
-//        AlertDialog a = b.create();
-//        a.show();
-//    }
+    // Mapping of active server URLs onto communication sockets
+    private HashMap<String, Socket> sock_map = null;
+
+    // List of available servers
+    public HashMap<String, ServerEntryData> sweetspot_server_list = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sweet_spot_main);
-
-        mNavigationDrawerFragment = (NavigationDrawerFragment)
-                getSupportFragmentManager().findFragmentById(R.id.navigation_drawer);
+        the_main_activity = this;
         mTitle = getTitle();
 
-        // Set up the drawer.
-        mNavigationDrawerFragment.setUp(
-                R.id.navigation_drawer,
-                (DrawerLayout) findViewById(R.id.drawer_layout));
-
-        // Create socket for communication
-        new InitiateConnectionTask().execute("trixie.no-ip.info", "" + Definitions.DEFAULT_PORT);
+        // Populate the available server list
+        sweetspot_server_list = new HashMap<>();
+        try {
+            FileInputStream fis = openFileInput(Definitions.CLIENT_DATA_FILE);
+            Scanner sc = new Scanner(fis);
+            while(sc.hasNext()) {
+                String line = sc.nextLine();
+                String[] element = line.split(",");
+                ServerEntryData entry = new ServerEntryData(element[0], element[1], Integer.parseInt(element[2]));
+                entry.enabled = Boolean.parseBoolean(element[3]);
+                sweetspot_server_list.put(element[0], entry);
+            }
+            new PopulateSongListTask().execute();
+        } catch(FileNotFoundException e) {
+            // If this is the very first time running SweetSpot, create the server list file
+            new AlertDialog.Builder(this)
+                    .setTitle("No servers")
+                    .setMessage("It looks like you don't have any servers yet. Add some under options!")
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            openServerListOptions();
+                        }
+                    })
+                    .show();
+        }
     }
 
-    @Override
-    public void onNavigationDrawerItemSelected(int position) {
-        // update the main content by replacing fragments
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        fragmentManager.beginTransaction()
-                .replace(R.id.songListContainer, PlaceholderFragment.newInstance(position + 1))
-                .commit();
+    // Open the server list options
+    public void openServerListOptions() {
+        Intent intent = new Intent(getApplicationContext(), ServerListActivity.class);
+        startActivity(intent);
     }
 
     public void onSectionAttached(int number) {
         switch (number) {
             case 1:
-                mTitle = getString(R.string.title_section_dropbox) + " Music";
-                break;
-            case 2:
-                mTitle = getString(R.string.title_section_gplay) + " Music";
-                break;
-            default:
-                mTitle = getString(R.string.title_section_addserver);
-                new GetMetadataTask().execute();
                 break;
         }
     }
@@ -126,15 +119,8 @@ public class SweetSpotMain extends ActionBarActivity
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        if (!mNavigationDrawerFragment.isDrawerOpen()) {
-            // Only show items in the action bar relevant to this screen
-            // if the drawer is not showing. Otherwise, let the drawer
-            // decide what to show in the action bar.
-            getMenuInflater().inflate(R.menu.sweet_spot_main, menu);
-            restoreActionBar();
-            return true;
-        }
-        return super.onCreateOptionsMenu(menu);
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
     }
 
     @Override
@@ -146,7 +132,8 @@ public class SweetSpotMain extends ActionBarActivity
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
-            return true;
+            Intent intent = new Intent(getApplicationContext(), ServerListActivity.class);
+            startActivity(intent);
         }
 
         return super.onOptionsItemSelected(item);
@@ -192,31 +179,73 @@ public class SweetSpotMain extends ActionBarActivity
         }
     }
 
-    // This class represents an initiation of a socket connection
-    private class InitiateConnectionTask extends AsyncTask<String, Void, Void> {
+    // This class represents the action of populating the song list from available servers
+    private class PopulateSongListTask extends AsyncTask<Void, Void, Void> {
         @Override
-        protected Void doInBackground(String... params) {
-            try {
-                sock = SocketFactory.getDefault().createSocket(params[0], Integer.parseInt(params[1]));
-                objout = new ObjectOutputStream(sock.getOutputStream());
-                objin = new ObjectInputStream(sock.getInputStream());
-            } catch(Exception e) {
-                Log.e("", e.getMessage(), e);
-            }
+        protected Void doInBackground(Void ... params) {
+            populateSongListMap();
+            // TODO update UI
             return null;
         }
     }
 
-    // This class represents a transaction of receiving file metadata from the server
+    // Connect to a SweetSpot server
+    private void initiateSweetSpotConnection(String url, int port) {
+        try {
+            Socket sock = SocketFactory.getDefault().createSocket(url, port);
+            sock_map.put(url, sock);
+        } catch(IOException e) {
+            Log.e(e.getMessage(), e.getMessage(), e);
+        }
+    }
+
+    // Populate song list
+    private void populateSongListMap() {
+        for(ServerEntryData entry : sweetspot_server_list.values()) {
+            if(!entry.enabled) {
+                // Do nothing for servers that are disabled
+                continue;
+            }
+            if(!sock_map.containsKey(entry.url)) {
+                // Initiate a connection to the server if the socket isn't available yet
+                // TODO
+            }
+            // Get metadata from the server
+            HashMap<String, Metadata> new_file_map = retrieveMetadata(entry);
+            if(new_file_map != null) {
+                file_map.putAll(new_file_map);
+            } else {
+                Log.w("Empty metadata HashMap gotten: " + entry.url, "");
+            }
+        }
+    }
+
+    // Get metadata from a server
+    private HashMap<String, Metadata> retrieveMetadata(ServerEntryData entry) {
+        HashMap<String, Metadata> file_map = null;
+        try {
+            ObjectInputStream objin = new ObjectInputStream(sock_map.get(entry.url).getInputStream());
+            ObjectOutputStream objout = new ObjectOutputStream(sock_map.get(entry.url).getOutputStream());
+            objout.writeObject(TransactionType.GET_METADATA);
+            file_map = (HashMap<String, Metadata>) objin.readObject();
+            objin.close();
+            objout.close();
+        } catch(IOException e) {
+            Log.e(e.getMessage(), e.getMessage(), e);
+        } catch(ClassNotFoundException e) {
+            Log.e(e.getMessage(), e.getMessage(), e);
+        }
+        return file_map;
+    }
+
+    /* This class represents a transaction of receiving file metadata from the server
     private class GetMetadataTask extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void ... v) {
             try {
-                Log.wtf("1", "2");
                 objout.writeObject(TransactionType.GET_METADATA);
                 objout.flush();
                 file_map = (HashMap<String, Metadata>) objin.readObject();
-                Log.wtf("3", "4");
             } catch(Exception e) {
                 Log.e("", e.getMessage(), e);
             }
@@ -244,5 +273,5 @@ public class SweetSpotMain extends ActionBarActivity
                     })
                     .show();
         }
-    }
+    }*/
 }

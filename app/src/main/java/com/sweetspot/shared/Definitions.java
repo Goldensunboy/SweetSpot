@@ -17,4 +17,7 @@ public class Definitions {
         GET_SONGFILE,
         CLIENT_DISCONNECT
     };
+
+    /** Constants */
+    public static final String CLIENT_DATA_FILE = "SweetSpot.data";
 }
