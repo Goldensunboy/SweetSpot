@@ -117,10 +117,41 @@ public class SweetSpotMain extends ActionBarActivity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
+        // ----
+        // Actions to take for each menu item selected
+        // ----
+        // If "Settings" selected ...
         if (id == R.id.action_settings) {
-            //Intent intent = new Intent(getApplicationContext(), AddServerActivity.class);
+            Intent intent = new Intent(getApplicationContext(), AddServerActivity.class);
+            startActivity(intent);
+
+        // Else if "Start Player" selected ...
+        } else if (id == R.id.start_player) {
             Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
             startActivity(intent);
+
+        // Else if "Add Drop Box" selected ...
+        } else if (id == R.id.connect_dropbox) {
+            // Insert what to do if selected...
+            AlertDialog.Builder builder1 = new AlertDialog.Builder(this);
+            builder1.setTitle("Connect to DropBox");
+            builder1.setMessage("Please log in and allow access via DropBox.");
+            builder1.setCancelable(true);
+            builder1.setPositiveButton("Continue",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            // Change this to actions for logging into DropBox...
+                            dialog.cancel();
+                        }
+                    });
+            builder1.setNegativeButton("Cancel",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            dialog.cancel();
+                        }
+                    });
+            AlertDialog alert11 = builder1.create();
+            alert11.show();
         }
 
         return super.onOptionsItemSelected(item);

@@ -5,4 +5,12 @@
         android:title="Settings"
         android:orderInCategory="100"
         app:showAsAction="never" />
+    <item android:id="@+id/start_player"
+        android:title="Start Player"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+    <item android:id="@+id/connect_dropbox"
+        android:title="Add DropBox"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
 </menu>
