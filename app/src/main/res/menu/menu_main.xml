@@ -10,7 +10,7 @@
         android:orderInCategory="100"
         app:showAsAction="never" />
     <item android:id="@+id/connect_dropbox"
-        android:title="Add DropBox"
+        android:title="DropBox"
         android:orderInCategory="100"
         app:showAsAction="never" />
 </menu>

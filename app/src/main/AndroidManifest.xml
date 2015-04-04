@@ -14,21 +14,23 @@
             android:label="SweetSpot" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!--
-        // ADDED this activity for DropBox Functionality
-        -->
+<!--         // ADDED this activity for DropBox Functionality -->
         <activity
             android:name="com.dropbox.client2.android.AuthActivity"
-            android:launchMode="singleTask"
-            android:configChanges="orientation|keyboard">
+            android:configChanges="orientation|keyboard"
+            android:launchMode="singleTask" >
             <intent-filter>
+
                 <!-- Our APP KEY is located after the db- in this line -->
                 <data android:scheme="db-fd2ss18720tu0ds" />
+
                 <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <category android:name="android.intent.category.BROWSABLE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -39,6 +41,10 @@
         <activity
             android:name=".SweetSpotPlayer"
             android:label="Player" >
+        </activity>
+        <activity
+            android:name=".DropboxFileDisplay"
+            android:label="@string/title_activity_dropbox_file_display" >
         </activity>
     </application>
 
