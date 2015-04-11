@@ -68,7 +68,7 @@ public class SweetSpotMain extends ActionBarActivity {
     // List of available servers
     public HashMap<String, ServerEntryData> sweetspot_server_list = null;
 
-    // For Use with DropBox
+/*    // For Use with DropBox
     // Replace this with your app key and secret assigned by Dropbox.
     // Note that this is a really insecure way to do this, and you shouldn't
     // ship code which contains your key & secret in such an obvious way.
@@ -81,7 +81,7 @@ public class SweetSpotMain extends ActionBarActivity {
     private static final String ACCESS_KEY_NAME = "ACCESS_KEY";
     private static final String ACCESS_SECRET_NAME = "ACCESS_SECRET";
     private static final boolean USE_OAUTH1 = false;
-
+*/
     // In the class declaration section:
     private DropboxAPI<AndroidAuthSession> mDBApi;
     private boolean mLoggedIn = false;
@@ -95,8 +95,19 @@ public class SweetSpotMain extends ActionBarActivity {
         the_main_activity = this;
         mTitle = getTitle();
 
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+        Log.d("Main1", "Started  successfully1.");
+
         // Initialize DropBox KeyPair
-        AppKeyPair appKeys = new AppKeyPair(APP_KEY, APP_SECRET);
+        AppKeyPair appKeys = new AppKeyPair(Constants.DROPBOX_APP_KEY, Constants.DROPBOX_APP_SECRET);
         AndroidAuthSession session = new AndroidAuthSession(appKeys);
         mDBApi = new DropboxAPI<AndroidAuthSession>(session);
         //mDBApi.getSession().startOAuth2Authentication(SweetSpotMain.this);
@@ -139,7 +150,16 @@ public class SweetSpotMain extends ActionBarActivity {
     public void openDropboxFileList() {
         //Intent intent = new Intent(SweetSpotMain.this, DropboxFileDisplay.class);
         //SweetSpotMain.this.startActivity(intent);
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
+        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
         setContentView(R.layout.activity_dropbox_file_display);
+
 
         // Problem here with "Internet on Main" ... so this needs to go on another thread somehow
 /*        String[] fnames = null;
@@ -427,12 +447,24 @@ public class SweetSpotMain extends ActionBarActivity {
      */
     private void storeAuth(AndroidAuthSession session) {
         // Store the OAuth 2 access token, if there is one.
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
+        Log.d("Main1", "Store Auth.");
         String oauth2AccessToken = session.getOAuth2AccessToken();
         if (oauth2AccessToken != null) {
-            SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
+            SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
             SharedPreferences.Editor edit = prefs.edit();
-            edit.putString(ACCESS_KEY_NAME, "oauth2:");
-            edit.putString(ACCESS_SECRET_NAME, oauth2AccessToken);
+            edit.putString(Constants.ACCESS_KEY_NAME, "oauth2:");
+            edit.putString(Constants.ACCESS_SECRET_NAME, oauth2AccessToken);
             edit.commit();
             return;
         }
@@ -440,10 +472,10 @@ public class SweetSpotMain extends ActionBarActivity {
         // you're still using OAuth 1.
         AccessTokenPair oauth1AccessToken = session.getAccessTokenPair();
         if (oauth1AccessToken != null) {
-            SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
+            SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
             SharedPreferences.Editor edit = prefs.edit();
-            edit.putString(ACCESS_KEY_NAME, oauth1AccessToken.key);
-            edit.putString(ACCESS_SECRET_NAME, oauth1AccessToken.secret);
+            edit.putString(Constants.ACCESS_KEY_NAME, oauth1AccessToken.key);
+            edit.putString(Constants.ACCESS_SECRET_NAME, oauth1AccessToken.secret);
             edit.commit();
             return;
         }
@@ -473,6 +505,18 @@ public class SweetSpotMain extends ActionBarActivity {
             AlertDialog.Builder builder3 = new AlertDialog.Builder(this);
             builder3.setTitle("Connected to Dropbox");
             builder3.setMessage("You were connected successfully.");
+
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+            Log.d("Main1", "LOGGED IN NOW.");
+
             builder3.setCancelable(false);
             builder3.setPositiveButton("OK",
                     new DialogInterface.OnClickListener() {
@@ -491,6 +535,8 @@ public class SweetSpotMain extends ActionBarActivity {
             AlertDialog.Builder builder4 = new AlertDialog.Builder(this);
             builder4.setTitle("Unlinked from Dropbox");
             builder4.setMessage("You were disconnected successfully.");
+            Log.d("Main1", "Connected successfully1.");
+            Log.i("Main2", "Connected successfully2.");
             builder4.setCancelable(false);
             builder4.setPositiveButton("OK",
                     new DialogInterface.OnClickListener() {
@@ -503,7 +549,7 @@ public class SweetSpotMain extends ActionBarActivity {
         }
     }
     private void clearKeys() {
-        SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
+        SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
         SharedPreferences.Editor edit = prefs.edit();
         edit.clear();
         edit.commit();
