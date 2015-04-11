@@ -20,6 +20,7 @@ import com.sweetspot.shared.Metadata;
 import com.sweetspot.shared.Definitions;
 import com.sweetspot.shared.Definitions.TransactionType;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -37,7 +38,6 @@ public class SweetSpotMain extends ActionBarActivity {
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
     private CharSequence mTitle;
-    public static SweetSpotMain the_main_activity;
 
     // Mapping of song files onto their metadata
     private HashMap<String, Metadata> file_map = null;
@@ -46,13 +46,12 @@ public class SweetSpotMain extends ActionBarActivity {
     private HashMap<String, Socket> sock_map = null;
 
     // List of available servers
-    public HashMap<String, ServerEntryData> sweetspot_server_list = null;
+    public static HashMap<String, ServerEntryData> sweetspot_server_list = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sweet_spot_main);
-        the_main_activity = this;
         mTitle = getTitle();
 
         // Populate the available server list
@@ -62,11 +61,38 @@ public class SweetSpotMain extends ActionBarActivity {
             Scanner sc = new Scanner(fis);
             while(sc.hasNext()) {
                 String line = sc.nextLine();
+                new AlertDialog.Builder(this)
+                        .setTitle("Info")
+                        .setMessage("line: " + line)
+                        .setPositiveButton("OK", null)
+                        .show();
                 String[] element = line.split(",");
-                ServerEntryData entry = new ServerEntryData(element[0], element[1], Integer.parseInt(element[2]));
-                entry.enabled = Boolean.parseBoolean(element[3]);
-                sweetspot_server_list.put(element[0], entry);
+                ServerEntryData entry = null;
+                switch(element[1]) {
+                    case "SweetSpot":
+                        entry = new ServerEntryData(element[0], element[3], Integer.parseInt(element[4]));
+                        break;
+                    case "DropBox":
+                        entry = new ServerEntryData(element[0], element[5], element[6]);
+                        break;
+                    default:
+                        new AlertDialog.Builder(this)
+                                .setTitle("Internal error")
+                                .setMessage("Error parsing " + Definitions.CLIENT_DATA_FILE + " backing file")
+                                .setPositiveButton("OK", null)
+                                .show();
+                }
+                if(entry != null) {
+                    entry.enabled = Boolean.parseBoolean(element[2]);
+                    sweetspot_server_list.put(element[0], entry);
+                }
             }
+            File f = getFilesDir();
+            new AlertDialog.Builder(this)
+                    .setTitle("Info")
+                    .setMessage("File dir: " + f.getAbsolutePath())
+                    .setPositiveButton("OK", null)
+                    .show();
             new PopulateSongListTask().execute();
         } catch(FileNotFoundException e) {
             // If this is the very first time running SweetSpot, create the server list file
@@ -219,6 +245,7 @@ public class SweetSpotMain extends ActionBarActivity {
 
     // Populate song list
     private void populateSongListMap() {
+        boolean b1 = true, b2 = true; if(b1 && b2) return;
         for(ServerEntryData entry : sweetspot_server_list.values()) {
             if(!entry.enabled) {
                 // Do nothing for servers that are disabled
