@@ -31,3 +31,6 @@ proguard/
 *.swp
 # Log Files
 *.log
+
+# Android Studio
+*.iml
