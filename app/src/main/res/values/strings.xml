@@ -13,4 +13,9 @@
 
     <string name="hello_world">Hello world!</string>
 
+    <string-array name="server_type_array">
+        <item>SweetSpot</item>
+        <item>DropBox</item>
+    </string-array>
+
 </resources>
