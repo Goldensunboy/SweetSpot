@@ -94,15 +94,6 @@ public class SweetSpotMain extends ActionBarActivity {
         mTitle = getTitle();
 
         Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
-        Log.d("Main1", "Started  successfully1.");
 
         // Initialize DropBox KeyPair
         AppKeyPair appKeys = new AppKeyPair(Constants.DROPBOX_APP_KEY, Constants.DROPBOX_APP_SECRET);
@@ -176,14 +167,8 @@ public class SweetSpotMain extends ActionBarActivity {
         //Intent intent = new Intent(SweetSpotMain.this, DropboxFileDisplay.class);
         //SweetSpotMain.this.startActivity(intent);
         Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
         setContentView(R.layout.activity_dropbox_file_display);
+        startActivity(new Intent(SweetSpotMain.this,DropboxFileDisplay.class));
 
 
         // Problem here with "Internet on Main" ... so this needs to go on another thread somehow
@@ -474,17 +459,7 @@ public class SweetSpotMain extends ActionBarActivity {
     private void storeAuth(AndroidAuthSession session) {
         // Store the OAuth 2 access token, if there is one.
         Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
-        Log.d("Main1", "Store Auth.");
+
         String oauth2AccessToken = session.getOAuth2AccessToken();
         if (oauth2AccessToken != null) {
             SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
@@ -533,15 +508,6 @@ public class SweetSpotMain extends ActionBarActivity {
             builder3.setMessage("You were connected successfully.");
 
             Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
-            Log.d("Main1", "LOGGED IN NOW.");
 
             builder3.setCancelable(false);
             builder3.setPositiveButton("OK",
@@ -561,8 +527,9 @@ public class SweetSpotMain extends ActionBarActivity {
             AlertDialog.Builder builder4 = new AlertDialog.Builder(this);
             builder4.setTitle("Unlinked from Dropbox");
             builder4.setMessage("You were disconnected successfully.");
-            Log.d("Main1", "Connected successfully1.");
-            Log.i("Main2", "Connected successfully2.");
+
+            Log.d("Main1", "LOGGED _OUT_ NOW.");
+
             builder4.setCancelable(false);
             builder4.setPositiveButton("OK",
                     new DialogInterface.OnClickListener() {
@@ -579,5 +546,6 @@ public class SweetSpotMain extends ActionBarActivity {
         SharedPreferences.Editor edit = prefs.edit();
         edit.clear();
         edit.commit();
+        Log.d("Main1", "Keys Cleared.");
     }
     }
