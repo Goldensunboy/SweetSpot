@@ -91,15 +91,18 @@ public class DropboxFileDisplay extends ActionBarActivity implements OnItemClick
         Log.d("DROPBOX FILE DISPLAY", "onCreate initiated.");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dropbox_file_display);
-
+        Log.d("DROPBOX FILE DISPLAY", "ContentView Setup.");
         lvDropboxDownloadFilesList = (ListView) findViewById(R.id.lvDropboxDownloadFilesList);
-
+        Log.d("DROPBOX FILE DISPLAY", "ListView-findViewByID.");
         // btnDropboxDownloadDone = (Button)
         // findViewById(R.id.btnDropboxDownloadDone);
         AndroidAuthSession session = buildSession();
+        Log.d("DROPBOX FILE DISPLAY", "AndroidAuthSession.");
         mDBApi = new DropboxAPI<AndroidAuthSession>(session);
+        Log.d("DROPBOX FILE DISPLAY", "mDBApi.");
 
         checkAppKeySetup();
+        Log.d("DROPBOX FILE DISPLAY", "Check App Key Setup Complete.");
         // setLoggedIn(false);
         if (!Constants.mLoggedIn)
             mDBApi.getSession().startAuthentication(DropboxFileDisplay.this);
