@@ -1,11 +1,15 @@
 package com.sweetspot.server;
 
+import java.io.BufferedInputStream;
 import java.io.EOFException;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OptionalDataException;
+import java.io.OutputStream;
 import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -43,6 +47,7 @@ public class SweetSpotServer {
 
     /** Default variables */
     private static final String DEFAULT_DIR = ".";
+    private static final int SEND_BUFFER_SIZE = 20 * 1024;
 	
 	/** Global variables used by the server */
 	private static File music_dir;
@@ -287,7 +292,10 @@ public class SweetSpotServer {
                             objout.flush();
                             break;
                         case GET_SONGFILE:
-                            // TODO
+                            String file_to_get = (String) objin.readObject();
+                            objout.writeLong(file_map.get(file_to_get).filesize);
+                            objout.flush();
+                            send_file_to_client(file_to_get);
                             break;
                         case CLIENT_DISCONNECT:
                             System.out.println("Client disconnected");
@@ -301,5 +309,33 @@ public class SweetSpotServer {
                 }
             }
 		}
+
+        /**
+         * Send a file to the client
+         * @param filename
+         */
+        private void send_file_to_client(String filename) throws FileNotFoundException, IOException {
+
+            // Establish IO streams
+            int sent = 0, size = (int) file_map.get(filename).filesize;
+            byte[] buffer = new byte[SEND_BUFFER_SIZE];
+            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(new File(filename)));
+            OutputStream out = sock.getOutputStream();
+
+            // Send until end of file
+            while(sent < size) {
+                bis.read(buffer, 0, SEND_BUFFER_SIZE);
+                int send_size = size - sent > SEND_BUFFER_SIZE ? SEND_BUFFER_SIZE : size - sent;
+                out.write(buffer, 0, send_size);
+                out.flush();
+                sent += send_size;
+                System.out.printf("Sending %s to %s (%d%%)\r", filename, client_name, sent * 100 / size);
+            }
+            System.out.println();
+
+            // Close descriptors
+            bis.close();
+            //System.out.println("Sent " + size + " bytes to " + client_name);
+        }
 	}
 }

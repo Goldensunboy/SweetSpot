@@ -1,7 +1,14 @@
 package com.sweetspot.client;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 import android.app.Activity;
+import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -15,22 +22,53 @@ import android.widget.MediaController;
 import android.widget.VideoView;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 
+import com.sweetspot.shared.Definitions;
+import com.sweetspot.shared.Metadata;
+
+import javax.net.SocketFactory;
+
 public class SweetSpotPlayer extends Activity
         implements OnSeekBarChangeListener {
 
+    // Constants used by the media player
+    private static final int BYTES_TO_READ = 50 * 1024;
+    private static final int BUFFER_SIZE = 16 * 1024;
+    private static final int FORWARD_TIME = 5000;
+    private static final int BACKWARD_TIME = 5000;
+
+    // Variables used by the media player
     public TextView songName, duration;
     private double timeElapsed = 0, finalTime = 0;
-    private int forwardTime = 2000, backwardTime = 2000;
     private Handler durationHandler = new Handler();
     private SeekBar seekbar;
-    private String path; // holds the path of song to be played
+    private long totalRead = 0;
     private VideoView mediaPlayer;
-    // ********  MediaController commented out; using custom buttons instead
-    // private MediaController mediaControl;
+    private MediaController mediaController;
+
+    // Low-level file buffering implementation variables
+    private byte[] songBuffer;
+    private volatile int recv;
+
+    // Data passed in from main
+    private String filepath;
+    private Metadata metadata = new Metadata();
+    private ServerEntryData entry;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Get arguments from intent map
+        Intent intent = getIntent();
+        filepath = intent.getStringExtra("filepath");
+        metadata.artist = intent.getStringExtra("artist");
+        metadata.album = intent.getStringExtra("album");
+        metadata.filename = intent.getStringExtra("filename");
+        metadata.filesize = intent.getLongExtra("filesize", -1);
+        metadata.length = intent.getIntExtra("length", -1);
+        metadata.samplerate = intent.getIntExtra("samplerate", -1);
+        metadata.title = intent.getStringExtra("title");
+        entry = new ServerEntryData(intent.getStringExtra("name"), intent.getStringExtra("url"), intent.getIntExtra("port", -1));
 
         //set the layout of the Activity
         setContentView(R.layout.activity_media_player);
@@ -39,44 +77,89 @@ public class SweetSpotPlayer extends Activity
         initializeViews();
     }
 
-    public void initializeViews(){
+    public void initializeViews() {
 
-        // Initialize mediaView and mediaControl to prepare for playing video/audio
         // Locate video view in activity_media_player
         mediaPlayer = (VideoView) findViewById(R.id.myMedia);
 
-        // ********  MediaController commented out; using custom buttons instead
-        // Make a new mediaController
-        // mediaControl = new MediaController(this);
-        // Anchor the media control with the mediaView
-        // mediaControl.setAnchorView(mediaPlayer);
-        // Make the media control reference the mediaView content
-        // mediaPlayer.setMediaController(mediaControl);
-
-        // Set Song Path
-        // Set path as correct URL (currently hard-coded)
-        path = "http://trixie.no-ip.info/content/music/Gamma Ray - Majestic/01 - My Temple.mp3";
-
-        // Parse current URL string into Uri format; store as mediaUri
-        Uri mediaUri = Uri.parse(path);
-
         // Set Song Name on screen
         songName = (TextView) findViewById(R.id.songName);
-        String nameString = mediaUri.getLastPathSegment();
-        songName.setText(nameString);
+        songName.setText(metadata.title);
 
-        // Set media URL within mediaView
-        mediaPlayer.setVideoURI(mediaUri);
+        // Set media source via controller
+        mediaController = new MediaController(this);
+        mediaController.setMediaPlayer(mediaPlayer);
+        mediaPlayer.setMediaController(mediaController);
+
         // Set up seek bar within view
         duration = (TextView) findViewById(R.id.songDuration);
+        int seconds = metadata.length % 60;
+        duration.setText("0:00 / " + (metadata.length / 60) + ":" + (seconds < 10 ? "0" : "") + seconds);
         seekbar = (SeekBar) findViewById(R.id.seekBar);
 
         // Listener
         seekbar.setOnSeekBarChangeListener(this);
+
+        // Signal controller to play music from input file on a new thread
+        new PlaySongFromInternet().execute();
     }
 
-    // play song
+    private class PlaySongFromInternet extends AsyncTask<Void, Void, Void> {
+        @Override
+        public Void doInBackground(Void ... params) {
+            try {
+                // Create a buffered input stream
+                if (!entry.isDropBoxServer()) {
+
+                    // Establish connection with the server
+                    Socket sock = SocketFactory.getDefault().createSocket(entry.url, entry.port);
+                    ObjectOutputStream objout = new ObjectOutputStream(sock.getOutputStream());
+                    InputStream in = sock.getInputStream();
+                    ObjectInputStream objin = new ObjectInputStream(in);
+
+                    // Initiate get songfile transaction
+                    objout.writeObject(Definitions.TransactionType.GET_SONGFILE);
+                    objout.writeObject(filepath);
+                    objout.flush();
+                    long size = objin.readLong();
+                    songBuffer = new byte[(int) size];
+                    recv = 0;
+
+                    // Initiate player thread
+
+
+                    // Read file into buffer
+                    while(recv < size) {
+                        int bytes_read = in.read(songBuffer, recv, (int) (size - recv));
+                        recv += bytes_read;
+                    }
+
+//                    runOnUiThread(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            songName = (TextView) findViewById(R.id.songName);
+//                            songName.setText("Completed!");
+//                        }
+//                    });
+
+                } else {
+                    // Drop box TODO
+                }
+            } catch(IOException e) {
+                String s = "What happened: ";
+                for(StackTraceElement s2 : e.getStackTrace()) {
+                    s += s2 + "\t\t";
+                }
+                Log.e(e.getMessage(), s);
+            }
+
+            return null;
+        }
+    }
+
+    // Play song
     public void play(View view) {
+
         // Start mediaPlayer
         mediaPlayer.start();
 
@@ -86,57 +169,60 @@ public class SweetSpotPlayer extends Activity
 
         // Update Seek Bar
         updateSeekBar();
-        //durationHandler.postDelayed(updateSeekBarTime, 100);
     }
 
-    // update seek bar
+    // Update seek bar
     public void updateSeekBar() {
         durationHandler.postDelayed(updateSeekBarTime, 100);
     }
 
-    //handler to change seekBarTime
+    // Handler to change seekBarTime
     private Runnable updateSeekBarTime = new Runnable() {
         public void run() {
-            //get current position
+
+            // Get current position
             timeElapsed = mediaPlayer.getCurrentPosition();
-            //set seek bar progress
+
+            // Set seek bar progress
             seekbar.setProgress((int) timeElapsed);
-            //set time remaining
-            double timeRemaining = finalTime - timeElapsed;
+
+            // Set time remaining
             long min_elapsed = TimeUnit.MILLISECONDS.toMinutes((long) timeElapsed);
             long sec_elapsed = TimeUnit.MILLISECONDS.toSeconds((long) timeElapsed) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) timeElapsed));
             long min_total = TimeUnit.MILLISECONDS.toMinutes((long) finalTime);
             long sec_total = TimeUnit.MILLISECONDS.toSeconds((long) finalTime) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) finalTime));
-            duration.setText(String.format("%d:%d / %d:%d", min_elapsed, sec_elapsed, min_total, sec_total));
+            duration.setText(String.format("%d:%02d / %d:%02d", min_elapsed, sec_elapsed, min_total, sec_total));
 
-            //repeat again in 100 milliseconds
+            // Repeat again in 100 milliseconds
             durationHandler.postDelayed(this, 100);
         }
     };
 
-    // pause media
+    // Pause media
     public void pause(View view) {
         mediaPlayer.pause();
     }
 
-    // go forward at forwardTime seconds
+    // Go forward at forwardTime seconds
     public void forward(View view) {
-        //check if we can go forward at forwardTime seconds before song ends
-        if ((timeElapsed + forwardTime) <= finalTime) {
-            timeElapsed = timeElapsed + forwardTime;
 
-            //seek to the exact second of the track
+        // Check if we can go forward at forwardTime seconds before song ends
+        if ((timeElapsed + FORWARD_TIME) <= finalTime) {
+            timeElapsed = timeElapsed + FORWARD_TIME;
+
+            // Seek to the exact second of the track
             mediaPlayer.seekTo((int) timeElapsed);
         }
     }
 
-    // go backward at backwardTime seconds
+    // Go backward at backwardTime seconds
     public void rewind(View view) {
-        //check if we can go backward at backwardTime seconds
-        if ((timeElapsed - backwardTime) >= 0 ) {
-            timeElapsed = timeElapsed - backwardTime;
 
-            //seek to the exact second of the track
+        //Check if we can go backward at backwardTime seconds
+        if ((timeElapsed - BACKWARD_TIME) >= 0 ) {
+            timeElapsed = timeElapsed - BACKWARD_TIME;
+
+            //Seek to the exact second of the track
             mediaPlayer.seekTo((int) timeElapsed);
         }
     }
@@ -145,9 +231,11 @@ public class SweetSpotPlayer extends Activity
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
 
     }
+
     // When user starts moving the seek bar
     @Override
     public void onStartTrackingTouch(SeekBar seekBar) {
+
         // remove message Handler from updating progress bar
         durationHandler.removeCallbacks(updateSeekBarTime);
     }
@@ -155,10 +243,13 @@ public class SweetSpotPlayer extends Activity
     // When user stops moving the seek bar
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
+
         int currentPosition = seekBar.getProgress();
-        // forward or backward to position selected
+
+        // Forward or backward to position selected
         mediaPlayer.seekTo(currentPosition);
-        // update seek bar again
+
+        // Update seek bar again
         updateSeekBar();
     }
 

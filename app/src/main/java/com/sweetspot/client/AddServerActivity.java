@@ -90,17 +90,7 @@ public class AddServerActivity extends Activity {
 
                     // Show information about the server
                     TextView serverInfo = ((TextView) dialogView.findViewById(R.id.serverInfoTextView));
-                    String info = "Name: " + serverEntry.name + "\nEnabled: " + serverEntry.enabled + "\n";
-                    switch(serverEntry.type) {
-                        case SWEETSPOT:
-                            info += "Type: SweetSpot\nURL: " + serverEntry.url + "\nPort: " + serverEntry.port;
-                            break;
-                        case DROPBOX:
-                            info += "Type: DropBox\nUsername: " + serverEntry.username + "\nPassword: " + serverEntry.password;
-                            break;
-                        default:
-                            info += "Type: Unknown";
-                    }
+                    String info = "Name: " + serverEntry.name + "\nURL: " + serverEntry.url + "\nPort: " + serverEntry.port + "\nEnabled: " + serverEntry.enabled;
                     serverInfo.setText(info);
 
                     // Create the modify server dialog
@@ -128,9 +118,8 @@ public class AddServerActivity extends Activity {
                                         errorStr = "Server name has an illegal character!";
                                     }
 
-                                    // Is this a SweetSpot server or DropBox server?
                                     ServerEntryData newServer = null;
-                                    if (((RadioButton) dialogView.findViewById(R.id.sweetSpotButton)).isChecked() && errorStr == null) {
+                                    if (errorStr == null) {
 
                                         // SweetSpot server
                                         String url = ((EditText) dialogView.findViewById(R.id.urlEditText)).getText().toString();
@@ -152,21 +141,6 @@ public class AddServerActivity extends Activity {
                                         // Create server
                                         newServer = new ServerEntryData(name, url, portVal);
 
-                                    } else if (errorStr == null) {
-
-                                        // DropBox server
-                                        String username = ((EditText) dialogView.findViewById(R.id.usernameEditText)).getText().toString();
-                                        String password = ((EditText) dialogView.findViewById(R.id.passwordEditText)).getText().toString();
-
-                                        // Validate input
-                                        if ("".equals(username)) {
-                                            errorStr = "Must enter a DropBox username!";
-                                        } else if ("".equals(password)) {
-                                            errorStr = "Must enter a DropBox password!";
-                                        }
-
-                                        // Create server
-                                        newServer = new ServerEntryData(name, username, password);
                                     }
 
                                     // Add server to our server list if there wasn't an error
@@ -208,14 +182,11 @@ public class AddServerActivity extends Activity {
         try {
             FileOutputStream fos = openFileOutput(Definitions.CLIENT_DATA_FILE, MODE_APPEND);
             PrintWriter pw = new PrintWriter(fos);
-            pw.printf("%s,%s,%b,%s,%d,%s,%s\n",
+            pw.printf("%s,%s,%d,%b\n",
                     newServer.name,
-                    newServer.type,
-                    newServer.enabled,
                     newServer.url,
                     newServer.port,
-                    newServer.username,
-                    newServer.password);
+                    newServer.enabled);
             pw.flush();
             fos.close();
         } catch (FileNotFoundException e) {
@@ -313,7 +284,7 @@ public class AddServerActivity extends Activity {
                         if(i != 0) {
                             newLine += ',';
                         }
-                        if(i != 2) {
+                        if(i != 3) {
                             newLine += element[i];
                         } else {
                             newLine += newState;
@@ -376,4 +347,11 @@ public class AddServerActivity extends Activity {
             adapter.notifyDataSetChanged();
         }
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        SweetSpotMain.main_instance.refreshSonglist();
+    }
+
 }

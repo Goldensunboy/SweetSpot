@@ -20,4 +20,5 @@ public class Definitions {
 
     /** Constants */
     public static final String CLIENT_DATA_FILE = "SweetSpot.data";
+    public static final String PLAY_BUFFER_FILE = "SweetSpot.buffer";
 }
