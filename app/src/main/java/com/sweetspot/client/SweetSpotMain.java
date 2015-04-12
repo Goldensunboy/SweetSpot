@@ -23,6 +23,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridView;
+import android.widget.ListView;
 import android.widget.Toast;
 
 import com.dropbox.client2.exception.DropboxException;
@@ -38,7 +39,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Scanner;
 
 import javax.net.SocketFactory;
@@ -61,8 +65,14 @@ public class SweetSpotMain extends ActionBarActivity {
     // Mapping of song files onto their metadata
     private HashMap<String, Metadata> file_map = null;
 
-    // Mapping of active server URLs onto communication sockets
-    private HashMap<String, Socket> sock_map = null;
+    // List of songs that backs the main ListView
+    private static List<String> songList = null;
+    private static List<String> songListTitles = null;
+    HashMap<String, String> songListMap = null;
+    private static ListView songListView = null;
+
+    // Mapping of song files onto which server they are from
+    private HashMap<String, ServerEntryData> which_server = null;
 
     // List of available servers
     public static HashMap<String, ServerEntryData> sweetspot_server_list = null;
@@ -127,11 +137,11 @@ public class SweetSpotMain extends ActionBarActivity {
                         entry = new ServerEntryData(element[0], element[5], element[6]);
                         break;
                     default:
-//                        new AlertDialog.Builder(this)
-//                                .setTitle("Internal error")
-//                                .setMessage("Error parsing " + Definitions.CLIENT_DATA_FILE + " backing file")
-//                                .setPositiveButton("OK", null)
-//                                .show();
+                        new AlertDialog.Builder(this)
+                                .setTitle("Internal error")
+                                .setMessage("Error parsing " + Definitions.CLIENT_DATA_FILE + " backing file")
+                                .setPositiveButton("OK", null)
+                                .show();
                 }
                 if(entry != null) {
                     entry.enabled = Boolean.parseBoolean(element[2]);
@@ -349,92 +359,109 @@ public class SweetSpotMain extends ActionBarActivity {
         }
     }
 
-    // Connect to a SweetSpot server
-    private void initiateSweetSpotConnection(String url, int port) {
-        try {
-            Socket sock = SocketFactory.getDefault().createSocket(url, port);
-            sock_map.put(url, sock);
-        } catch(IOException e) {
-            Log.e(e.getMessage(), e.getMessage(), e);
-        }
-    }
-
     // Populate song list
     private void populateSongListMap() {
-        boolean b1 = true, b2 = true; if(b1 && b2) return;
+
+        // Reset all the metadata structures
+        file_map = new HashMap<String, Metadata>();
+        which_server = new HashMap<String, ServerEntryData>();
+
+        // Process all enabled servers in the server list
         for(ServerEntryData entry : sweetspot_server_list.values()) {
+
+            // Do nothing for servers that are disabled
             if(!entry.enabled) {
-                // Do nothing for servers that are disabled
                 continue;
             }
-            if(!sock_map.containsKey(entry.url)) {
-                // Initiate a connection to the server if the socket isn't available yet
-                // TODO
-            }
-            // Get metadata from the server
-            HashMap<String, Metadata> new_file_map = retrieveMetadata(entry);
-            if(new_file_map != null) {
-                file_map.putAll(new_file_map);
+
+            // Get metadata from a single server
+            HashMap<String, Metadata> map = retrieveMetadata(entry);
+
+            // Consolidate results into main map
+            if(map != null) {
+                file_map.putAll(map);
             } else {
-                Log.w("Empty metadata HashMap gotten: " + entry.url, "");
+                Log.w("metadata", "Empty metadata HashMap gotten: " + entry.url);
             }
         }
+
+        // Update the list of songs to play in the main screen
+        songList = new ArrayList<String>(file_map.keySet());
+        songListMap = new HashMap<String, String>(); // Map song titles onto file names
+        for(String s : file_map.keySet()) {
+            songListMap.put(file_map.get(s).title, s);
+        }
+        songListTitles = new ArrayList<String>(songListMap.keySet());
+        Collections.sort(songListTitles, new Comparator<String>() {
+            public int compare(String s1, String s2) {
+                return s1.toUpperCase().compareTo(s2.toUpperCase());
+            }
+        });
+        songListView = (ListView) findViewById(R.id.songListView);
+        runOnUiThread(new Runnable() {
+            public void run() {
+                songListView.setAdapter(new ArrayAdapter<String>(SweetSpotMain.this, android.R.layout.simple_list_item_1, songListTitles));
+            }
+        });
+        songListView.setFastScrollEnabled(true);
+        songListView.setOnItemClickListener(new AdapterView.OnItemClickListener()
+        {
+            @Override
+            public void onItemClick(AdapterView<?> a, View v,int position, long id)
+            {
+                Metadata meta = file_map.get(songListMap.get(songListTitles.get(position)));
+                Toast.makeText(getBaseContext(), meta.artist, Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     // Get metadata from a server
     private HashMap<String, Metadata> retrieveMetadata(ServerEntryData entry) {
-        HashMap<String, Metadata> file_map = null;
-        try {
-            ObjectInputStream objin = new ObjectInputStream(sock_map.get(entry.url).getInputStream());
-            ObjectOutputStream objout = new ObjectOutputStream(sock_map.get(entry.url).getOutputStream());
-            objout.writeObject(TransactionType.GET_METADATA);
-            file_map = (HashMap<String, Metadata>) objin.readObject();
-            objin.close();
-            objout.close();
-        } catch(IOException e) {
-            Log.e(e.getMessage(), e.getMessage(), e);
-        } catch(ClassNotFoundException e) {
-            Log.e(e.getMessage(), e.getMessage(), e);
+        HashMap<String, Metadata> map = null;
+        switch(entry.type) {
+            case SWEETSPOT:
+                map = retrieveMetadataSweetSpot(entry);
+                break;
+            case DROPBOX:
+                map = retrieveMetadataDropBox(entry);
+                break;
+            default:
+                Log.w("metadata", "Invalid type detected for entry: " + entry.name);
         }
-        return file_map;
+        return map;
     }
 
-    /* This class represents a transaction of receiving file metadata from the server
-    private class GetMetadataTask extends AsyncTask<Void, Void, Void> {
-        @Override
-        protected Void doInBackground(Void ... v) {
-            try {
-                objout.writeObject(TransactionType.GET_METADATA);
-                objout.flush();
-                file_map = (HashMap<String, Metadata>) objin.readObject();
-            } catch(Exception e) {
-                Log.e("", e.getMessage(), e);
-            }
-            return null;
-        }
-        @Override
-        protected void onPostExecute(Void v) {
-            List<String> song_list = new ArrayList<String>();
-            for(String file : file_map.keySet()) {
-                Metadata m = file_map.get(file);
-                song_list.add(m.title + " / " + m.artist);
-            }
-            ListView list = (ListView) findViewById(R.id.songListView);
-            list.setAdapter(new ArrayAdapter<String>(this_view, android.R.layout.simple_list_item_1, song_list));
-            list.setFastScrollEnabled(true);
+    // Get metadata from a SweetSpot server
+    private HashMap<String, Metadata> retrieveMetadataSweetSpot(ServerEntryData entry) {
+        HashMap<String, Metadata> map = null;
+        try {
 
-            new AlertDialog.Builder(this_view)
-                    .setTitle("Result")
-                    .setMessage("Songs: " + file_map.size())
-                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
+            // Establish a communication socket
+            Socket sock = SocketFactory.getDefault().createSocket(entry.url, entry.port);
+            ObjectInputStream objin = new ObjectInputStream(sock.getInputStream());
+            ObjectOutputStream objout = new ObjectOutputStream(sock.getOutputStream());
 
-                        }
-                    })
-                    .show();
+            // Initiate a get metadata transaction
+            objout.writeObject(TransactionType.GET_METADATA);
+            objout.flush();
+            map = (HashMap<String, Metadata>) objin.readObject();
+
+            // Close communication socket
+            objout.writeObject(TransactionType.CLIENT_DISCONNECT);
+            sock.close();
+
+        } catch (IOException e) {
+            Log.e(e.getMessage(), e.getMessage(), e);
+        } catch (ClassNotFoundException e) {
+            Log.e(e.getMessage(), e.getMessage(), e);
         }
-    }*/
+        return map;
+    }
+
+    // Get metadata from a DropBox server
+    private HashMap<String, Metadata> retrieveMetadataDropBox(ServerEntryData entry) {
+        return null;
+    }
 
     // Added for DropBox
     protected void onResume() {
@@ -569,4 +596,4 @@ public class SweetSpotMain extends ActionBarActivity {
         edit.clear();
         edit.commit();
     }
-    }
+}
