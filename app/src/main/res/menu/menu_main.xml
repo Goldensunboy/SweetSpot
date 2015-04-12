@@ -2,15 +2,15 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item android:id="@+id/action_settings"
-        android:title="Settings"
-        android:orderInCategory="100"
-        app:showAsAction="never" />
-    <item android:id="@+id/start_player"
-        android:title="Start Player"
+        android:title="Server List"
         android:orderInCategory="100"
         app:showAsAction="never" />
     <item android:id="@+id/connect_dropbox"
-        android:title="DropBox"
+        android:title="Connect DropBox"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
+    <item android:id="@+id/start_player"
+        android:title="Refresh"
         android:orderInCategory="100"
         app:showAsAction="never" />
 </menu>

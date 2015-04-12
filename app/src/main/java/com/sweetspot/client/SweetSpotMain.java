@@ -2,18 +2,15 @@ package com.sweetspot.client;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.AsyncTask;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -22,17 +19,13 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.GridView;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import com.dropbox.client2.exception.DropboxException;
 import com.sweetspot.shared.Metadata;
 import com.sweetspot.shared.Definitions;
 import com.sweetspot.shared.Definitions.TransactionType;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -50,11 +43,7 @@ import javax.net.SocketFactory;
 
 import com.dropbox.client2.DropboxAPI;
 import com.dropbox.client2.android.AndroidAuthSession;
-import com.dropbox.client2.android.AuthActivity;
-import com.dropbox.client2.session.AccessTokenPair;
 import com.dropbox.client2.session.AppKeyPair;
-import com.dropbox.client2.DropboxAPI.Entry;
-import com.dropbox.client2.DropboxAPI;
 
 public class SweetSpotMain extends ActionBarActivity {
 
@@ -62,6 +51,7 @@ public class SweetSpotMain extends ActionBarActivity {
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
     private CharSequence mTitle;
+    public static SweetSpotMain main_instance;
 
     // Mapping of song files onto their metadata
     private HashMap<String, Metadata> file_map = null;
@@ -89,6 +79,7 @@ public class SweetSpotMain extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sweet_spot_main);
         mTitle = getTitle();
+        main_instance = this;
 
         Log.d("Main1", "Started  successfully1.");
         if (!Constants.mLoggedIn) {
@@ -111,27 +102,10 @@ public class SweetSpotMain extends ActionBarActivity {
             while(sc.hasNext()) {
                 String line = sc.nextLine();
                 String[] element = line.split(",");
-                ServerEntryData entry = null;
-                switch(element[1]) {
-                    case "SweetSpot":
-                        entry = new ServerEntryData(element[0], element[3], Integer.parseInt(element[4]));
-                        break;
-                    case "DropBox":
-                        entry = new ServerEntryData(element[0], element[5], element[6]);
-                        break;
-                    default:
-                        new AlertDialog.Builder(this)
-                                .setTitle("Internal error")
-                                .setMessage("Error parsing " + Definitions.CLIENT_DATA_FILE + " backing file")
-                                .setPositiveButton("OK", null)
-                                .show();
-                }
-                if(entry != null) {
-                    entry.enabled = Boolean.parseBoolean(element[2]);
-                    sweetspot_server_list.put(element[0], entry);
-                }
+                ServerEntryData entry = new ServerEntryData(element[0], element[1], Integer.parseInt(element[2]));
+                entry.enabled = Boolean.parseBoolean(element[3]);
+                sweetspot_server_list.put(element[0], entry);
             }
-            new PopulateSongListTask().execute();
         } catch(FileNotFoundException e) {
             // If this is the very first time running SweetSpot, create the server list file
             new AlertDialog.Builder(this)
@@ -145,6 +119,9 @@ public class SweetSpotMain extends ActionBarActivity {
                     })
                     .show();
         }
+
+        // Populate song list from available servers
+        new PopulateSongListTask().execute();
     }
 
     // Open the server list options
@@ -193,15 +170,15 @@ public class SweetSpotMain extends ActionBarActivity {
         // ----
         // Actions to take for each menu item selected
         // ----
-        // If "Settings" selected ...
+        // If "Server List" selected ...
         if (id == R.id.action_settings) {
             Intent intent = new Intent(getApplicationContext(), AddServerActivity.class);
             startActivity(intent);
 
-        // Else if "Start Player" selected ...
+        // Else if "Refresh" selected ...
         } else if (id == R.id.start_player) {
             Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
-            startActivity(intent);
+            new PopulateSongListTask().execute();
 
         // Else if "Add Drop Box" selected ...
         } else if (id == R.id.connect_dropbox) {
@@ -297,7 +274,8 @@ public class SweetSpotMain extends ActionBarActivity {
     }
 
     // This class represents the action of populating the song list from available servers
-    private class PopulateSongListTask extends AsyncTask<Void, Void, Void> {
+    public void refreshSonglist() {new PopulateSongListTask().execute();}
+    public class PopulateSongListTask extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void ... params) {
             populateSongListMap();
@@ -322,14 +300,23 @@ public class SweetSpotMain extends ActionBarActivity {
             }
 
             // Get metadata from a single server
-            HashMap<String, Metadata> map = retrieveMetadata(entry);
+            HashMap<String, Metadata> map = retrieveMetadataSweetSpot(entry);
 
             // Consolidate results into main map
             if(map != null) {
                 file_map.putAll(map);
+                for(String s : map.keySet()) {
+                    which_server.put(s, entry);
+                }
             } else {
                 Log.w("metadata", "Empty metadata HashMap gotten: " + entry.url);
             }
+        }
+
+        // Process files from DropBox
+        HashMap<String, Metadata> map = retrieveMetadataDropBox();
+        if(map != null) {
+            file_map.putAll(map);
         }
 
         // Update the list of songs to play in the main screen
@@ -356,26 +343,27 @@ public class SweetSpotMain extends ActionBarActivity {
             @Override
             public void onItemClick(AdapterView<?> a, View v,int position, long id)
             {
-                Metadata meta = file_map.get(songListMap.get(songListTitles.get(position)));
-                Toast.makeText(getBaseContext(), meta.artist, Toast.LENGTH_LONG).show();
+
+                // This is what happens when you click on a song entry
+                String filepath = songListMap.get(songListTitles.get(position));
+                Metadata meta = file_map.get(filepath);
+                ServerEntryData entry = which_server.get(filepath);
+
+                Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
+                intent.putExtra("filepath", filepath);
+                intent.putExtra("title", meta.title);
+                intent.putExtra("artist", meta.artist);
+                intent.putExtra("album", meta.album);
+                intent.putExtra("filename", meta.filename);
+                intent.putExtra("length", meta.length);
+                intent.putExtra("samplerate", meta.samplerate);
+                intent.putExtra("filesize", meta.filesize);
+                intent.putExtra("name", entry.name);
+                intent.putExtra("url", entry.url);
+                intent.putExtra("port", entry.port);
+                startActivity(intent);
             }
         });
-    }
-
-    // Get metadata from a server
-    private HashMap<String, Metadata> retrieveMetadata(ServerEntryData entry) {
-        HashMap<String, Metadata> map = null;
-        switch(entry.type) {
-            case SWEETSPOT:
-                map = retrieveMetadataSweetSpot(entry);
-                break;
-            case DROPBOX:
-                map = retrieveMetadataDropBox(entry);
-                break;
-            default:
-                Log.w("metadata", "Invalid type detected for entry: " + entry.name);
-        }
-        return map;
     }
 
     // Get metadata from a SweetSpot server
@@ -406,8 +394,8 @@ public class SweetSpotMain extends ActionBarActivity {
     }
 
     // Get metadata from a DropBox server
-    private HashMap<String, Metadata> retrieveMetadataDropBox(ServerEntryData entry) {
-        return null;
+    private HashMap<String, Metadata> retrieveMetadataDropBox() {
+        return null; // TODO
     }
 
     // Added for DropBox

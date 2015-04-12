@@ -8,32 +8,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="Server Type:"
-        android:id="@+id/typeTextView" />
-
-    <RadioGroup
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
-
-        <RadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="SweetSpot"
-            android:id="@+id/sweetSpotButton"
-            android:checked="true" />
-
-        <RadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="DropBox"
-            android:id="@+id/dropBoxButton"
-            android:checked="false" />
-    </RadioGroup>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
         android:text="SweetSpot URL:"
         android:id="@+id/urlText" />
 
@@ -57,36 +31,6 @@
         android:layout_height="wrap_content"
         android:id="@+id/portEditText"
         android:text="30012"
-        android:maxLines="1"
-        android:singleLine="true"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="DropBox Username:"
-        android:id="@+id/usernameText" />
-
-    <EditText
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/usernameEditText"
-        android:maxLines="1"
-        android:singleLine="true"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="?android:attr/textAppearanceMedium"
-        android:text="DropBox Password:"
-        android:id="@+id/passwordText" />
-
-    <EditText
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:inputType="textPassword"
-        android:ems="10"
-        android:id="@+id/passwordEditText"
         android:maxLines="1"
         android:singleLine="true"/>
 
