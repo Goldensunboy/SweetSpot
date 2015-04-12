@@ -407,7 +407,7 @@ public class SweetSpotMain extends ActionBarActivity {
 
     // Get metadata from a DropBox server
     private HashMap<String, Metadata> retrieveMetadataDropBox(ServerEntryData entry) {
-        return null;
+        return null; // TODO
     }
 
     // Added for DropBox
