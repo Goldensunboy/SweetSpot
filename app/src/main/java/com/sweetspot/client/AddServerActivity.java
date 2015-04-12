@@ -1,25 +1,10 @@
 package com.sweetspot.client;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
-import android.content.res.Configuration;
-import android.media.Ringtone;
-import android.media.RingtoneManager;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.preference.ListPreference;
-import android.preference.Preference;
 import android.preference.PreferenceActivity;
-import android.preference.PreferenceCategory;
-import android.preference.PreferenceFragment;
-import android.preference.PreferenceManager;
-import android.preference.RingtonePreference;
-import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
@@ -27,20 +12,20 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RadioButton;
-import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.sweetspot.shared.Definitions;
 
-import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 
-import java.util.HashMap;
 import java.util.List;
+import java.util.Scanner;
 import java.util.regex.Pattern;
 
 /**
@@ -78,8 +63,51 @@ public class AddServerActivity extends Activity {
             public void onItemClick(AdapterView<?> a, View v,int position, long id)
             {
                 if(position < serverList.size() - 1) {
-                    Toast.makeText(getBaseContext(), serverList.get(position), Toast.LENGTH_LONG).show();
+
+                    final ServerEntryData serverEntry = SweetSpotMain.sweetspot_server_list.get(serverList.get(position));
+
+                    // Create the dialog for viewing a server
+                    AlertDialog.Builder builder = new AlertDialog.Builder(AddServerActivity.this);
+                    LayoutInflater inflater = AddServerActivity.this.getLayoutInflater();
+                    final View dialogView = inflater.inflate(R.layout.fragment_modify_server_dialog, null);
+                    builder.setView(dialogView)
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                }
+                            })
+                            .setNegativeButton("Delete", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                    removeServer(serverEntry);
+                                    Toast.makeText(getBaseContext(), "Removed server \"" + serverEntry.name + "\"", Toast.LENGTH_LONG).show();
+                                }
+                            })
+                            .setNeutralButton(serverEntry.enabled ? "Disable" : "Enable", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
+                                    toggleServer(serverEntry);
+                                    Toast.makeText(getBaseContext(), "Toggled server \"" + serverEntry.name + "\" to " + (serverEntry.enabled ? "enabled" : "disabled"), Toast.LENGTH_LONG).show();
+                                }
+                            });
+
+                    // Show information about the server
+                    TextView serverInfo = ((TextView) dialogView.findViewById(R.id.serverInfoTextView));
+                    String info = "Name: " + serverEntry.name + "\nEnabled: " + serverEntry.enabled + "\n";
+                    switch(serverEntry.type) {
+                        case SWEETSPOT:
+                            info += "Type: SweetSpot\nURL: " + serverEntry.url + "\nPort: " + serverEntry.port;
+                            break;
+                        case DROPBOX:
+                            info += "Type: DropBox\nUsername: " + serverEntry.username + "\nPassword: " + serverEntry.password;
+                            break;
+                        default:
+                            info += "Type: Unknown";
+                    }
+                    serverInfo.setText(info);
+
+                    // Create the modify server dialog
+                    builder.create().show();
                 } else {
+
+                    // Create the dialog for adding a new server
                     AlertDialog.Builder builder = new AlertDialog.Builder(AddServerActivity.this);
                     LayoutInflater inflater = AddServerActivity.this.getLayoutInflater();
                     final View dialogView = inflater.inflate(R.layout.fragment_add_server_dialog, null);
@@ -174,7 +202,7 @@ public class AddServerActivity extends Activity {
 
         // Add server to current running instance of SweetSpot
         SweetSpotMain.sweetspot_server_list.put(newServer.name, newServer);
-        runOnUiThread(new UpdateViewTask(newServer.name));
+        runOnUiThread(new AddSingleServerTask(newServer.name));
 
         // Add server to backing file
         try {
@@ -190,13 +218,129 @@ public class AddServerActivity extends Activity {
                     newServer.password);
             pw.flush();
             fos.close();
-        } catch(FileNotFoundException e) {
+        } catch (FileNotFoundException e) {
             new AlertDialog.Builder(this)
                     .setTitle("Internal error")
                     .setMessage("Backing file not found: " + e.getMessage())
                     .setPositiveButton("OK", null)
                     .show();
-        } catch(IOException e) {
+        } catch (IOException e) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Internal error")
+                    .setMessage("File IO error: " + e.getMessage())
+                    .setPositiveButton("OK", null)
+                    .show();
+        }
+    }
+
+    /**
+     * Remove a server from the data structures used by SweetSpot
+     * @param serverEntry The metadata for the server to remove
+     */
+    private void removeServer(ServerEntryData serverEntry) {
+
+        // Remove server from current instance of SweetSpot
+        SweetSpotMain.sweetspot_server_list.remove(serverEntry.name);
+        runOnUiThread(new RemoveSingleServerTask(serverEntry.name));
+
+        // Remove server from backing file
+        try {
+
+            // Read existing data into an ArrayList, except removal server
+            FileInputStream fis = openFileInput(Definitions.CLIENT_DATA_FILE);
+            ArrayList<String> servers = new ArrayList<String>();
+            Scanner sc = new Scanner(fis);
+            while(sc.hasNext()) {
+                String line = sc.nextLine();
+                String[] element = line.split(",");
+                if(!serverEntry.name.equals(element[0])) {
+                    servers.add(line);
+                }
+            }
+            sc.close();
+            fis.close();
+
+            // Write data back to the file
+            FileOutputStream fos = openFileOutput(Definitions.CLIENT_DATA_FILE, MODE_PRIVATE);
+            PrintWriter pw = new PrintWriter(fos);
+            for(String s : servers) {
+                pw.printf("%s\n", s);
+            }
+            pw.flush();
+            fos.close();
+
+        } catch (FileNotFoundException e) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Internal error")
+                    .setMessage("Backing file not found: " + e.getMessage())
+                    .setPositiveButton("OK", null)
+                    .show();
+        } catch (IOException e) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Internal error")
+                    .setMessage("File IO error: " + e.getMessage())
+                    .setPositiveButton("OK", null)
+                    .show();
+        }
+    }
+
+    /**
+     * Toggle a server in the data structures used by SweetSpot
+     * @param serverEntry The metadata for the server to toggle
+     */
+    private void toggleServer(ServerEntryData serverEntry) {
+
+        // Toggle server in current instance of SweetSpot
+        boolean newState = !serverEntry.enabled;
+        SweetSpotMain.sweetspot_server_list.get(serverEntry.name).enabled = newState;
+
+        // Update server from backing file
+        try {
+
+            // Read existing data into an ArrayList, except removal server
+            FileInputStream fis = openFileInput(Definitions.CLIENT_DATA_FILE);
+            ArrayList<String> servers = new ArrayList<String>();
+            Scanner sc = new Scanner(fis);
+            while(sc.hasNext()) {
+                String line = sc.nextLine();
+                String[] element = line.split(",");
+                if(!serverEntry.name.equals(element[0])) {
+                    servers.add(line);
+                } else {
+                    // Toggle the enabled entry in the CSV data
+                    String newLine = "";
+                    for(int i = 0; i < element.length; ++i) {
+                        if(i != 0) {
+                            newLine += ',';
+                        }
+                        if(i != 2) {
+                            newLine += element[i];
+                        } else {
+                            newLine += newState;
+                        }
+                    }
+                    servers.add(newLine);
+                }
+            }
+            sc.close();
+            fis.close();
+
+            // Write data back to the file
+            FileOutputStream fos = openFileOutput(Definitions.CLIENT_DATA_FILE, MODE_PRIVATE);
+            PrintWriter pw = new PrintWriter(fos);
+            for(String s : servers) {
+                pw.printf("%s\n", s);
+            }
+            pw.flush();
+            fos.close();
+
+        } catch (FileNotFoundException e) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Internal error")
+                    .setMessage("Backing file not found: " + e.getMessage())
+                    .setPositiveButton("OK", null)
+                    .show();
+        } catch (IOException e) {
             new AlertDialog.Builder(this)
                     .setTitle("Internal error")
                     .setMessage("File IO error: " + e.getMessage())
@@ -208,13 +352,27 @@ public class AddServerActivity extends Activity {
     /**
      * Adds a server to the server list on the UI thread
      */
-    private class UpdateViewTask implements Runnable {
+    private class AddSingleServerTask implements Runnable {
         private String name;
-        public UpdateViewTask(String name) {
+        public AddSingleServerTask(String name) {
             this.name = name;
         }
         public void run() {
             serverList.add(0, name);
+            adapter.notifyDataSetChanged();
+        }
+    }
+
+    /**
+     * Remove a server from the server list on the UI thread
+     */
+    private class RemoveSingleServerTask implements Runnable {
+        private String name;
+        public RemoveSingleServerTask(String name) {
+            this.name = name;
+        }
+        public void run() {
+            serverList.remove(name);
             adapter.notifyDataSetChanged();
         }
     }

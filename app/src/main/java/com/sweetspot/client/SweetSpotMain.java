@@ -117,11 +117,6 @@ public class SweetSpotMain extends ActionBarActivity {
             Scanner sc = new Scanner(fis);
             while(sc.hasNext()) {
                 String line = sc.nextLine();
-                new AlertDialog.Builder(this)
-                        .setTitle("Info")
-                        .setMessage("line: " + line)
-                        .setPositiveButton("OK", null)
-                        .show();
                 String[] element = line.split(",");
                 ServerEntryData entry = null;
                 switch(element[1]) {
@@ -132,23 +127,17 @@ public class SweetSpotMain extends ActionBarActivity {
                         entry = new ServerEntryData(element[0], element[5], element[6]);
                         break;
                     default:
-                        new AlertDialog.Builder(this)
-                                .setTitle("Internal error")
-                                .setMessage("Error parsing " + Definitions.CLIENT_DATA_FILE + " backing file")
-                                .setPositiveButton("OK", null)
-                                .show();
+//                        new AlertDialog.Builder(this)
+//                                .setTitle("Internal error")
+//                                .setMessage("Error parsing " + Definitions.CLIENT_DATA_FILE + " backing file")
+//                                .setPositiveButton("OK", null)
+//                                .show();
                 }
                 if(entry != null) {
                     entry.enabled = Boolean.parseBoolean(element[2]);
                     sweetspot_server_list.put(element[0], entry);
                 }
             }
-            File f = getFilesDir();
-            new AlertDialog.Builder(this)
-                    .setTitle("Info")
-                    .setMessage("File dir: " + f.getAbsolutePath())
-                    .setPositiveButton("OK", null)
-                    .show();
             new PopulateSongListTask().execute();
         } catch(FileNotFoundException e) {
             // If this is the very first time running SweetSpot, create the server list file
