@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
@@ -52,6 +53,7 @@ public class SweetSpotMain extends ActionBarActivity {
      */
     private CharSequence mTitle;
     public static SweetSpotMain main_instance;
+    public static MediaPlayer mp = new MediaPlayer();
 
     // Mapping of song files onto their metadata
     private HashMap<String, Metadata> file_map = null;

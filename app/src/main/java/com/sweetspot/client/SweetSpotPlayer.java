@@ -1,5 +1,7 @@
 package com.sweetspot.client;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -13,14 +15,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.net.Uri;
-// ********  MediaController commented out; using custom buttons instead
 import android.media.MediaPlayer;
-import android.widget.MediaController;
-import android.widget.VideoView;
 import android.widget.SeekBar.OnSeekBarChangeListener;
+import android.widget.Toast;
 
 import com.sweetspot.shared.Definitions;
 import com.sweetspot.shared.Metadata;
@@ -31,23 +31,17 @@ public class SweetSpotPlayer extends Activity
         implements OnSeekBarChangeListener {
 
     // Constants used by the media player
-    private static final int BYTES_TO_READ = 50 * 1024;
-    private static final int BUFFER_SIZE = 16 * 1024;
     private static final int FORWARD_TIME = 5000;
     private static final int BACKWARD_TIME = 5000;
 
     // Variables used by the media player
     public TextView songName, duration;
-    private double timeElapsed = 0, finalTime = 0;
+    private static double timeElapsed = 0, finalTime = 0;
     private Handler durationHandler = new Handler();
     private SeekBar seekbar;
-    private long totalRead = 0;
-    private VideoView mediaPlayer;
-    private MediaController mediaController;
-
-    // Low-level file buffering implementation variables
-    private byte[] songBuffer;
-    private volatile int recv;
+    private MediaPlayer mp;
+    private ProgressBar prog;
+    //private Handler progHandler;
 
     // Data passed in from main
     private String filepath;
@@ -57,6 +51,7 @@ public class SweetSpotPlayer extends Activity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mp = SweetSpotMain.mp;
 
         // Get arguments from intent map
         Intent intent = getIntent();
@@ -79,17 +74,18 @@ public class SweetSpotPlayer extends Activity
 
     public void initializeViews() {
 
-        // Locate video view in activity_media_player
-        mediaPlayer = (VideoView) findViewById(R.id.myMedia);
-
         // Set Song Name on screen
         songName = (TextView) findViewById(R.id.songName);
         songName.setText(metadata.title);
-
-        // Set media source via controller
-        mediaController = new MediaController(this);
-        mediaController.setMediaPlayer(mediaPlayer);
-        mediaPlayer.setMediaController(mediaController);
+        prog = (ProgressBar) findViewById(R.id.progressBar);
+        prog.setProgress(0);
+        mp.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+            @Override
+            public void onPrepared(MediaPlayer mp) {
+                prog.setVisibility(ProgressBar.GONE);
+                play(null);
+            }
+        });
 
         // Set up seek bar within view
         duration = (TextView) findViewById(R.id.songDuration);
@@ -101,6 +97,7 @@ public class SweetSpotPlayer extends Activity
         seekbar.setOnSeekBarChangeListener(this);
 
         // Signal controller to play music from input file on a new thread
+        //Toast.makeText(SweetSpotPlayer.this, "Downloading " + metadata.title + "...", Toast.LENGTH_LONG);
         new PlaySongFromInternet().execute();
     }
 
@@ -113,8 +110,8 @@ public class SweetSpotPlayer extends Activity
 
                     // Establish connection with the server
                     Socket sock = SocketFactory.getDefault().createSocket(entry.url, entry.port);
-                    ObjectOutputStream objout = new ObjectOutputStream(sock.getOutputStream());
                     InputStream in = sock.getInputStream();
+                    ObjectOutputStream objout = new ObjectOutputStream(sock.getOutputStream());
                     ObjectInputStream objin = new ObjectInputStream(in);
 
                     // Initiate get songfile transaction
@@ -122,35 +119,39 @@ public class SweetSpotPlayer extends Activity
                     objout.writeObject(filepath);
                     objout.flush();
                     long size = objin.readLong();
-                    songBuffer = new byte[(int) size];
-                    recv = 0;
-
-                    // Initiate player thread
-
+                    byte[] songBuffer = new byte[(int) size];
+                    int recv = 0;
 
                     // Read file into buffer
                     while(recv < size) {
                         int bytes_read = in.read(songBuffer, recv, (int) (size - recv));
                         recv += bytes_read;
+                        prog.setProgress((int) (recv * 100 / size));
                     }
 
-//                    runOnUiThread(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            songName = (TextView) findViewById(R.id.songName);
-//                            songName.setText("Completed!");
-//                        }
-//                    });
+                    // Write data to cache
+                    FileOutputStream fos = openFileOutput(Definitions.PLAY_BUFFER_FILE, MODE_PRIVATE);
+                    fos.write(songBuffer, 0, (int) size);
+                    fos.close();
+
+                    // Configure the media player to use the cache file
+                    timeElapsed = 0;
+                    mp.pause();
+                    mp.reset();
+                    FileInputStream fis = openFileInput(Definitions.PLAY_BUFFER_FILE);
+                    mp.setDataSource(fis.getFD());
+                    fis.close();
+                    mp.prepare();
 
                 } else {
                     // Drop box TODO
                 }
             } catch(IOException e) {
-                String s = "What happened: ";
+                String s = "What happened:";
                 for(StackTraceElement s2 : e.getStackTrace()) {
-                    s += s2 + "\t\t";
+                    s += "\n\t" + s2;
                 }
-                Log.e(e.getMessage(), s);
+                Log.e(e.getMessage() + "\t\t" + e.getCause(), s);
             }
 
             return null;
@@ -161,10 +162,11 @@ public class SweetSpotPlayer extends Activity
     public void play(View view) {
 
         // Start mediaPlayer
-        mediaPlayer.start();
+        mp.start();
+        //mediaPlayer.start();
 
         // Set max song time within view
-        finalTime = mediaPlayer.getDuration();
+        finalTime = mp.getDuration();
         seekbar.setMax((int) finalTime);
 
         // Update Seek Bar
@@ -181,7 +183,7 @@ public class SweetSpotPlayer extends Activity
         public void run() {
 
             // Get current position
-            timeElapsed = mediaPlayer.getCurrentPosition();
+            timeElapsed = mp.getCurrentPosition();
 
             // Set seek bar progress
             seekbar.setProgress((int) timeElapsed);
@@ -200,7 +202,7 @@ public class SweetSpotPlayer extends Activity
 
     // Pause media
     public void pause(View view) {
-        mediaPlayer.pause();
+        mp.pause();
     }
 
     // Go forward at forwardTime seconds
@@ -211,7 +213,7 @@ public class SweetSpotPlayer extends Activity
             timeElapsed = timeElapsed + FORWARD_TIME;
 
             // Seek to the exact second of the track
-            mediaPlayer.seekTo((int) timeElapsed);
+            mp.seekTo((int) timeElapsed);
         }
     }
 
@@ -223,7 +225,7 @@ public class SweetSpotPlayer extends Activity
             timeElapsed = timeElapsed - BACKWARD_TIME;
 
             //Seek to the exact second of the track
-            mediaPlayer.seekTo((int) timeElapsed);
+            mp.seekTo((int) timeElapsed);
         }
     }
 
@@ -247,7 +249,7 @@ public class SweetSpotPlayer extends Activity
         int currentPosition = seekBar.getProgress();
 
         // Forward or backward to position selected
-        mediaPlayer.seekTo(currentPosition);
+        mp.seekTo(currentPosition);
 
         // Update seek bar again
         updateSeekBar();
