@@ -23,6 +23,7 @@ import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.dropbox.client2.exception.DropboxException;
 import com.sweetspot.shared.Metadata;
 import com.sweetspot.shared.Definitions;
 import com.sweetspot.shared.Definitions.TransactionType;
@@ -39,6 +40,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 import javax.net.SocketFactory;
 
@@ -54,6 +56,7 @@ public class SweetSpotMain extends ActionBarActivity {
     private CharSequence mTitle;
     public static SweetSpotMain main_instance;
     public static MediaPlayer mp = new MediaPlayer();
+    private static boolean init = false;
 
     // Mapping of song files onto their metadata
     private HashMap<String, Metadata> file_map = null;
@@ -71,10 +74,10 @@ public class SweetSpotMain extends ActionBarActivity {
     public static HashMap<String, ServerEntryData> sweetspot_server_list = null;
 
     // In the class declaration section:
-    private DropboxAPI<AndroidAuthSession> mDBApi;
-    private Button mSubmit;
-    private String NEXT_DBOX_REQUEST = "Add DropBox";
-    public String access_Token, saved_Token, default_Token;
+    public static DropboxAPI<AndroidAuthSession> mDBApi;
+//    private Button mSubmit;
+//    private String NEXT_DBOX_REQUEST = "Add DropBox";
+//    public String access_Token, saved_Token, default_Token;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,47 +86,58 @@ public class SweetSpotMain extends ActionBarActivity {
         mTitle = getTitle();
         main_instance = this;
 
-        Log.d("Main1", "Started  successfully1.");
-        if (!Constants.mLoggedIn) {
-            Log.d("Main1", "Current Status: Logged Out of DropBox");
-        } else {
-            Log.d("Main1", "Current Status: Logged In to DropBox");
-        }
+        if(!init) {
+            init = true;
+//            Log.d("Main1", "Started  successfully1.");
+//            if (!Constants.mLoggedIn) {
+//                Log.d("Main1", "Current Status: Logged Out of DropBox");
+//            } else {
+//                Log.d("Main1", "Current Status: Logged In to DropBox");
+//            }
 
-        // Initialize DropBox KeyPair
-        AppKeyPair appKeys = new AppKeyPair(Constants.DROPBOX_APP_KEY, Constants.DROPBOX_APP_SECRET);
-        AndroidAuthSession session = new AndroidAuthSession(appKeys);
-        mDBApi = new DropboxAPI<AndroidAuthSession>(session);
-        //mDBApi.getSession().startOAuth2Authentication(SweetSpotMain.this);
-
-         // Populate the available server list
-        sweetspot_server_list = new HashMap<>();
-        try {
-            FileInputStream fis = openFileInput(Definitions.CLIENT_DATA_FILE);
-            Scanner sc = new Scanner(fis);
-            while(sc.hasNext()) {
-                String line = sc.nextLine();
-                String[] element = line.split(",");
-                ServerEntryData entry = new ServerEntryData(element[0], element[1], Integer.parseInt(element[2]));
-                entry.enabled = Boolean.parseBoolean(element[3]);
-                sweetspot_server_list.put(element[0], entry);
+            // Initialize DropBox KeyPair
+            SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
+            String authToken = prefs.getString(Constants.ACCESS_SECRET_NAME, null);
+            AppKeyPair appKeys = new AppKeyPair(Constants.DROPBOX_APP_KEY, Constants.DROPBOX_APP_SECRET);
+            AndroidAuthSession session;
+            if (authToken != null) {
+                // Restore session
+                session = new AndroidAuthSession(appKeys, authToken);
+            } else {
+                // No token saved
+                session = new AndroidAuthSession(appKeys);
             }
-        } catch(FileNotFoundException e) {
-            // If this is the very first time running SweetSpot, create the server list file
-            new AlertDialog.Builder(this)
-                    .setTitle("No servers")
-                    .setMessage("It looks like you don't have any servers yet. Add some under options!")
-                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            openServerListOptions();
-                        }
-                    })
-                    .show();
-        }
+            mDBApi = new DropboxAPI<AndroidAuthSession>(session);
 
-        // Populate song list from available servers
-        new PopulateSongListTask().execute();
+            // Populate the available server list
+            sweetspot_server_list = new HashMap<>();
+            try {
+                FileInputStream fis = openFileInput(Definitions.CLIENT_DATA_FILE);
+                Scanner sc = new Scanner(fis);
+                while (sc.hasNext()) {
+                    String line = sc.nextLine();
+                    String[] element = line.split(",");
+                    ServerEntryData entry = new ServerEntryData(element[0], element[1], Integer.parseInt(element[2]));
+                    entry.enabled = Boolean.parseBoolean(element[3]);
+                    sweetspot_server_list.put(element[0], entry);
+                }
+            } catch (FileNotFoundException e) {
+                // If this is the very first time running SweetSpot, create the server list file
+                new AlertDialog.Builder(this)
+                        .setTitle("No servers")
+                        .setMessage("It looks like you don't have any servers yet. Add some under options!")
+                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                openServerListOptions();
+                            }
+                        })
+                        .show();
+            }
+
+            // Populate song list from available servers
+            new PopulateSongListTask().execute();
+        }
     }
 
     // Open the server list options
@@ -163,15 +177,8 @@ public class SweetSpotMain extends ActionBarActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
-        // ----
-        // Actions to take for each menu item selected
-        // ----
         // If "Server List" selected ...
         if (id == R.id.action_settings) {
             Intent intent = new Intent(getApplicationContext(), AddServerActivity.class);
@@ -280,8 +287,56 @@ public class SweetSpotMain extends ActionBarActivity {
     public class PopulateSongListTask extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void ... params) {
+
+            // Populate the song list map
             populateSongListMap();
-            // TODO update UI
+
+            // Update the list of songs to play in the main screen
+            songList = new ArrayList<String>(file_map.keySet());
+            songListMap = new HashMap<String, String>(); // Map song titles onto file names
+            for(String s : file_map.keySet()) {
+                songListMap.put(file_map.get(s).title, s);
+            }
+            songListTitles = new ArrayList<String>(songListMap.keySet());
+            Collections.sort(songListTitles, new Comparator<String>() {
+                public int compare(String s1, String s2) {
+                    return s1.toUpperCase().compareTo(s2.toUpperCase());
+                }
+            });
+            songListView = (ListView) findViewById(R.id.songListView);
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    songListView.setAdapter(new ArrayAdapter<String>(SweetSpotMain.this, android.R.layout.simple_list_item_1, songListTitles));
+                }
+            });
+            songListView.setFastScrollEnabled(true);
+            songListView.setOnItemClickListener(new AdapterView.OnItemClickListener()
+            {
+                @Override
+                public void onItemClick(AdapterView<?> a, View v,int position, long id)
+                {
+
+                    // This is what happens when you click on a song entry
+                    String filepath = songListMap.get(songListTitles.get(position));
+                    Metadata meta = file_map.get(filepath);
+                    ServerEntryData entry = which_server.get(filepath);
+
+                    Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
+                    intent.putExtra("filepath", filepath);
+                    intent.putExtra("title", meta.title);
+                    intent.putExtra("artist", meta.artist);
+                    intent.putExtra("album", meta.album);
+                    intent.putExtra("filename", meta.filename);
+                    intent.putExtra("length", meta.length);
+                    intent.putExtra("samplerate", meta.samplerate);
+                    intent.putExtra("filesize", meta.filesize);
+                    intent.putExtra("name", entry.name);
+                    intent.putExtra("url", entry.url);
+                    intent.putExtra("port", entry.port);
+                    startActivity(intent);
+                }
+            });
+
             return null;
         }
     }
@@ -320,52 +375,6 @@ public class SweetSpotMain extends ActionBarActivity {
         if(map != null) {
             file_map.putAll(map);
         }
-
-        // Update the list of songs to play in the main screen
-        songList = new ArrayList<String>(file_map.keySet());
-        songListMap = new HashMap<String, String>(); // Map song titles onto file names
-        for(String s : file_map.keySet()) {
-            songListMap.put(file_map.get(s).title, s);
-        }
-        songListTitles = new ArrayList<String>(songListMap.keySet());
-        Collections.sort(songListTitles, new Comparator<String>() {
-            public int compare(String s1, String s2) {
-                return s1.toUpperCase().compareTo(s2.toUpperCase());
-            }
-        });
-        songListView = (ListView) findViewById(R.id.songListView);
-        runOnUiThread(new Runnable() {
-            public void run() {
-                songListView.setAdapter(new ArrayAdapter<String>(SweetSpotMain.this, android.R.layout.simple_list_item_1, songListTitles));
-            }
-        });
-        songListView.setFastScrollEnabled(true);
-        songListView.setOnItemClickListener(new AdapterView.OnItemClickListener()
-        {
-            @Override
-            public void onItemClick(AdapterView<?> a, View v,int position, long id)
-            {
-
-                // This is what happens when you click on a song entry
-                String filepath = songListMap.get(songListTitles.get(position));
-                Metadata meta = file_map.get(filepath);
-                ServerEntryData entry = which_server.get(filepath);
-
-                Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
-                intent.putExtra("filepath", filepath);
-                intent.putExtra("title", meta.title);
-                intent.putExtra("artist", meta.artist);
-                intent.putExtra("album", meta.album);
-                intent.putExtra("filename", meta.filename);
-                intent.putExtra("length", meta.length);
-                intent.putExtra("samplerate", meta.samplerate);
-                intent.putExtra("filesize", meta.filesize);
-                intent.putExtra("name", entry.name);
-                intent.putExtra("url", entry.url);
-                intent.putExtra("port", entry.port);
-                startActivity(intent);
-            }
-        });
     }
 
     // Get metadata from a SweetSpot server
@@ -397,7 +406,45 @@ public class SweetSpotMain extends ActionBarActivity {
 
     // Get metadata from a DropBox server
     private HashMap<String, Metadata> retrieveMetadataDropBox() {
-        return null; // TODO
+
+        HashMap<String, Metadata> map = new HashMap<String, Metadata>();
+
+        // Is the user logged in?
+        dropboxRecurse(map, "/");
+
+        return map;
+    }
+
+    // Recurse the Dropbox folders to find MP3s
+    private void dropboxRecurse(HashMap<String, Metadata> map, String dir) {
+        try {
+            DropboxAPI.Entry ent = mDBApi.metadata(dir, 0, null, true, null);
+            for (DropboxAPI.Entry e : ent.contents) {
+                if (e.isDir) {
+                    // Is a folder
+                    dropboxRecurse(map, e.path);
+                } else {
+                    // If a file
+                    if (Pattern.matches(".*\\.mp3", e.path)) {
+                        String[] parts = e.path.split("/");
+                        Metadata m = new Metadata();
+                        m.title = parts[parts.length - 1].substring(0, parts[parts.length - 1].length() - 4);
+                        m.filename = e.path;
+                        m.filesize = e.bytes;
+                        map.put(e.path, m);
+                        ServerEntryData sed = new ServerEntryData(null, null, -1);
+                        which_server.put(e.path, sed);
+                        //Log.e("DropboxOKAY", m.title);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            String s = e.toString();
+            for(StackTraceElement st : e.getStackTrace()) {
+                s += "\n\t" + st.toString();
+            }
+            //Log.e("DropboxERROR", e.getMessage() + s);
+        }
     }
 
     // Added for DropBox

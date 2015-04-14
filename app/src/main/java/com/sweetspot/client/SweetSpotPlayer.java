@@ -1,5 +1,6 @@
 package com.sweetspot.client;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -22,6 +23,9 @@ import android.media.MediaPlayer;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.Toast;
 
+import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.ProgressListener;
+import com.dropbox.client2.exception.DropboxException;
 import com.sweetspot.shared.Definitions;
 import com.sweetspot.shared.Metadata;
 
@@ -130,24 +134,40 @@ public class SweetSpotPlayer extends Activity
                     }
 
                     // Write data to cache
+                    mp.pause();
                     FileOutputStream fos = openFileOutput(Definitions.PLAY_BUFFER_FILE, MODE_PRIVATE);
                     fos.write(songBuffer, 0, (int) size);
                     fos.close();
 
-                    // Configure the media player to use the cache file
-                    timeElapsed = 0;
-                    mp.pause();
-                    mp.reset();
-                    FileInputStream fis = openFileInput(Definitions.PLAY_BUFFER_FILE);
-                    mp.setDataSource(fis.getFD());
-                    fis.close();
-                    mp.prepare();
-
                 } else {
-                    // Drop box TODO
+
+                    // The cache file that Dropbox will write to
+                    FileOutputStream fos = openFileOutput(Definitions.PLAY_BUFFER_FILE, MODE_PRIVATE);
+                    DropboxAPI.DropboxFileInfo info = SweetSpotMain.mDBApi.getFile(filepath, null, fos, new ProgressListener() {
+                        @Override
+                        public void onProgress(long recv, long size) {
+                            prog.setProgress((int) (recv * 100 / size));
+                        }
+                    });
+                    fos.close();
                 }
+
+                // Configure the media player to use the cache file
+                timeElapsed = 0;
+                mp.reset();
+                FileInputStream fis = openFileInput(Definitions.PLAY_BUFFER_FILE);
+                mp.setDataSource(fis.getFD());
+                fis.close();
+                mp.prepare();
+
             } catch(IOException e) {
-                String s = "What happened:";
+                String s = e.toString();
+                for(StackTraceElement s2 : e.getStackTrace()) {
+                    s += "\n\t" + s2;
+                }
+                Log.e(e.getMessage() + "\t\t" + e.getCause(), s);
+            } catch(DropboxException e) {
+                String s = e.toString();
                 for(StackTraceElement s2 : e.getStackTrace()) {
                     s += "\n\t" + s2;
                 }

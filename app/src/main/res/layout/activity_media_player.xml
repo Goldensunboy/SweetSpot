@@ -46,41 +46,40 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="30dp"
-        android:gravity="center_horizontal"
-        android:orientation="horizontal" >
+        android:orientation="horizontal"
+        android:gravity="center_horizontal">
 
         <ImageButton
             android:id="@+id/media_rew"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="14dp"
             android:onClick="rewind"
-            android:src="@android:drawable/ic_media_rew" />
+            android:src="@android:drawable/ic_media_rew"
+            android:layout_margin="5dp" />
 
         <ImageButton
             android:id="@+id/media_pause"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="14dp"
             android:onClick="pause"
-            android:src="@android:drawable/ic_media_pause" />
+            android:src="@android:drawable/ic_media_pause"
+            android:layout_margin="5dp" />
 
         <ImageButton
             android:id="@+id/media_play"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="14dp"
             android:onClick="play"
-            android:src="@android:drawable/ic_media_play" />
+            android:src="@android:drawable/ic_media_play"
+            android:layout_margin="5dp" />
 
         <ImageButton
             android:id="@+id/media_ff"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="14dp"
             android:onClick="forward"
-            android:src="@android:drawable/ic_media_ff" />
+            android:src="@android:drawable/ic_media_ff"
+            android:layout_margin="5dp" />
     </LinearLayout>
 
     <ProgressBar
