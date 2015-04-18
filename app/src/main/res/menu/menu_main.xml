@@ -6,7 +6,7 @@
         android:orderInCategory="100"
         app:showAsAction="never" />
     <item android:id="@+id/connect_dropbox"
-        android:title="Connect DropBox"
+        android:title="Manage DropBox"
         android:orderInCategory="100"
         app:showAsAction="never" />
     <item android:id="@+id/start_player"

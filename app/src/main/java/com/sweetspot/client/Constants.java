@@ -21,13 +21,10 @@ public class Constants {
     // Obfuscation is good.
     final static public String DROPBOX_APP_KEY = "fd2ss18720tu0ds";
     final static public String DROPBOX_APP_SECRET = "769gk29vul1jek5";
-    public static boolean mLoggedIn = false;
-
 
     final static public Session.AccessType ACCESS_TYPE = Session.AccessType.DROPBOX;
 
     final static public String ACCOUNT_PREFS_NAME = "prefs";
     final static public String ACCESS_KEY_NAME = "ACCESS_KEY";
     final static public String ACCESS_SECRET_NAME = "ACCESS_SECRET";
-
 }

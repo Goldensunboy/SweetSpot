@@ -1,6 +1,7 @@
 package com.sweetspot.client;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -21,6 +22,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.dropbox.client2.exception.DropboxException;
@@ -54,9 +56,12 @@ public class SweetSpotMain extends ActionBarActivity {
      * Used to store the last screen title. For use in {@link #restoreActionBar()}.
      */
     private CharSequence mTitle;
+    private ProgressBar pg = null;
     public static SweetSpotMain main_instance;
     public static MediaPlayer mp = new MediaPlayer();
+    public static String currSong = null;
     private static boolean init = false;
+    private static SharedPreferences prefs = null;
 
     // Mapping of song files onto their metadata
     private HashMap<String, Metadata> file_map = null;
@@ -75,9 +80,6 @@ public class SweetSpotMain extends ActionBarActivity {
 
     // In the class declaration section:
     public static DropboxAPI<AndroidAuthSession> mDBApi;
-//    private Button mSubmit;
-//    private String NEXT_DBOX_REQUEST = "Add DropBox";
-//    public String access_Token, saved_Token, default_Token;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,18 +87,14 @@ public class SweetSpotMain extends ActionBarActivity {
         setContentView(R.layout.activity_sweet_spot_main);
         mTitle = getTitle();
         main_instance = this;
+        pg = (ProgressBar) findViewById(R.id.loadingSongsProgressBar);
+        pg.setVisibility(View.GONE);
+        prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
 
         if(!init) {
             init = true;
-//            Log.d("Main1", "Started  successfully1.");
-//            if (!Constants.mLoggedIn) {
-//                Log.d("Main1", "Current Status: Logged Out of DropBox");
-//            } else {
-//                Log.d("Main1", "Current Status: Logged In to DropBox");
-//            }
 
             // Initialize DropBox KeyPair
-            SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
             String authToken = prefs.getString(Constants.ACCESS_SECRET_NAME, null);
             AppKeyPair appKeys = new AppKeyPair(Constants.DROPBOX_APP_KEY, Constants.DROPBOX_APP_SECRET);
             AndroidAuthSession session;
@@ -123,16 +121,18 @@ public class SweetSpotMain extends ActionBarActivity {
                 }
             } catch (FileNotFoundException e) {
                 // If this is the very first time running SweetSpot, create the server list file
-                new AlertDialog.Builder(this)
-                        .setTitle("No servers")
-                        .setMessage("It looks like you don't have any servers yet. Add some under options!")
-                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                openServerListOptions();
-                            }
-                        })
-                        .show();
+                if(prefs.getString(Constants.ACCESS_SECRET_NAME, null) == null) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("No servers")
+                            .setMessage("It looks like you don't have any servers yet. Add some under options!")
+                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    openServerListOptions();
+                                }
+                            })
+                            .show();
+                }
             }
 
             // Populate song list from available servers
@@ -144,15 +144,6 @@ public class SweetSpotMain extends ActionBarActivity {
     public void openServerListOptions() {
         Intent intent = new Intent(getApplicationContext(), AddServerActivity.class);
         startActivity(intent);
-    }
-
-    // Open new page to display Dropbox contents
-    public void openDropboxFileList() {
-        //Intent intent = new Intent(SweetSpotMain.this, DropboxFileDisplay.class);
-        //SweetSpotMain.this.startActivity(intent);
-        Log.d("Main1", "OPEN DROPBOX FILE LIST CALLED.");
-        setContentView(R.layout.activity_dropbox_file_display);
-        startActivity(new Intent(SweetSpotMain.this,DropboxFileDisplay.class));
     }
 
     public void onSectionAttached(int number) {
@@ -191,7 +182,7 @@ public class SweetSpotMain extends ActionBarActivity {
 
         // Else if "Add Drop Box" selected ...
         } else if (id == R.id.connect_dropbox) {
-            if (Constants.mLoggedIn) {
+            if (prefs.getString(Constants.ACCESS_SECRET_NAME, null) != null) {
                 // Insert what to do if selected when logged in
                 AlertDialog.Builder builder1 = new AlertDialog.Builder(this);
                 builder1.setTitle("Manage Dropbox Connection");
@@ -200,9 +191,6 @@ public class SweetSpotMain extends ActionBarActivity {
                 builder1.setPositiveButton("Unlink from Dropbox",
                         new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
-                                // Change this to actions for logging into DropBox...
-                                //mDBApi.getSession().startOAuth2Authentication(SweetSpotMain.this);
-                                //dialog.cancel();
                                 logOut();
                             }
                         });
@@ -223,9 +211,8 @@ public class SweetSpotMain extends ActionBarActivity {
                 builder2.setPositiveButton("Continue",
                         new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
-                                // Change this to actions for logging into DropBox...
                                 mDBApi.getSession().startOAuth2Authentication(SweetSpotMain.this);
-                                //dialog.cancel();
+                                new PopulateSongListTask().execute();
                             }
                         });
                 builder2.setNegativeButton("Cancel",
@@ -288,6 +275,14 @@ public class SweetSpotMain extends ActionBarActivity {
         @Override
         protected Void doInBackground(Void ... params) {
 
+            // Start the loading icon
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    pg.setVisibility(View.VISIBLE);
+                }
+            });
+
             // Populate the song list map
             populateSongListMap();
 
@@ -337,6 +332,13 @@ public class SweetSpotMain extends ActionBarActivity {
                 }
             });
 
+            // Make the spinner icon disappear
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    pg.setVisibility(View.GONE);
+                }
+            });
             return null;
         }
     }
@@ -434,7 +436,6 @@ public class SweetSpotMain extends ActionBarActivity {
                         map.put(e.path, m);
                         ServerEntryData sed = new ServerEntryData(null, null, -1);
                         which_server.put(e.path, sed);
-                        //Log.e("DropboxOKAY", m.title);
                     }
                 }
             }
@@ -443,7 +444,6 @@ public class SweetSpotMain extends ActionBarActivity {
             for(StackTraceElement st : e.getStackTrace()) {
                 s += "\n\t" + st.toString();
             }
-            //Log.e("DropboxERROR", e.getMessage() + s);
         }
     }
 
@@ -459,13 +459,18 @@ public class SweetSpotMain extends ActionBarActivity {
                 // Store it locally in our app for later use
                 storeAuth(mDBApi.getSession());
                 setLoggedIn(true);
+                AppKeyPair appKeys = new AppKeyPair(Constants.DROPBOX_APP_KEY, Constants.DROPBOX_APP_SECRET);
+                AndroidAuthSession session = new AndroidAuthSession(appKeys, mDBApi.getSession().getOAuth2AccessToken());
+                mDBApi.getSession().unlink();
+                mDBApi = new DropboxAPI<AndroidAuthSession>(session);
 
-                String accessToken = mDBApi.getSession().getOAuth2AccessToken();
+                new PopulateSongListTask().execute();
             } catch (IllegalStateException e) {
                 Log.i("DbAuthLog", "Error authenticating", e);
             }
         }
     }
+
     /**
      * Shows keeping the access keys returned from Trusted Authenticator in a local
      * store, rather than storing user name & password, and re-authenticating each
@@ -479,12 +484,12 @@ public class SweetSpotMain extends ActionBarActivity {
         if (oauth2AccessToken != null) {
             SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
             SharedPreferences.Editor edit = prefs.edit();
-            edit.putString(Constants.ACCESS_KEY_NAME, "oauth2:");
             edit.putString(Constants.ACCESS_SECRET_NAME, oauth2AccessToken);
             edit.commit();
             return;
         }
-   }
+    }
+
     private void logOut() {
         // Remove credentials from the session
         mDBApi.getSession().unlink();
@@ -495,15 +500,14 @@ public class SweetSpotMain extends ActionBarActivity {
         // Change UI state to display logged out version
         setLoggedIn(false);
 
-        // Change layout to SweetSpotMain
-        setContentView(R.layout.activity_sweet_spot_main);
+        // Refresh the song list
+        new PopulateSongListTask().execute();
     }
 
     /**
      * Convenience function to take actions upon login and logout
      */
     private void setLoggedIn(boolean loggedIn) {
-        Constants.mLoggedIn = loggedIn;
         if (loggedIn) {
             // Enter Actions to Take upon login
             // Insert what to do if selected when not logged in already
@@ -511,17 +515,11 @@ public class SweetSpotMain extends ActionBarActivity {
             builder3.setTitle("Connected to Dropbox");
             builder3.setMessage("You were connected successfully.");
 
-            Log.d("Main1", "LOGGED IN NOW.");
-            if (Constants.mLoggedIn) {
-                Log.d("Main1", "Confirmed: Logged In Saved");
-            }
-
             builder3.setCancelable(false);
             builder3.setPositiveButton("OK",
                     new DialogInterface.OnClickListener() {
                         public void onClick(DialogInterface dialog, int id) {
                             dialog.cancel();
-                            //openDropboxFileList();
                         }
                     });
             AlertDialog alert3 = builder3.create();
@@ -535,12 +533,6 @@ public class SweetSpotMain extends ActionBarActivity {
             builder4.setTitle("Unlinked from Dropbox");
             builder4.setMessage("You were disconnected successfully.");
 
-            Log.d("Main1", "LOGGED _OUT_ NOW.");
-            if (!Constants.mLoggedIn) {
-                Log.d("Main1", "Confirmed: Logged Out Saved");
-            }
-
-
             builder4.setCancelable(false);
             builder4.setPositiveButton("OK",
                     new DialogInterface.OnClickListener() {
@@ -552,10 +544,11 @@ public class SweetSpotMain extends ActionBarActivity {
             alert4.show();
         }
     }
+
     private void clearKeys() {
-        SharedPreferences prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
         SharedPreferences.Editor edit = prefs.edit();
-        edit.clear();
+        edit.remove(Constants.ACCESS_SECRET_NAME);
+        edit.remove(Constants.ACCESS_SECRET_NAME);
         edit.commit();
         Log.d("Main1", "Keys Cleared.");
     }

@@ -15,6 +15,14 @@
             android:layout_height="fill_parent"
             android:id="@+id/songListView"
             android:layout_gravity="center" />
+
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/loadingSongsProgressBar"
+            android:layout_centerVertical="true"
+            android:layout_centerHorizontal="true" />
+
     </FrameLayout>
 
     <!-- android:layout_gravity="start" tells DrawerLayout to treat

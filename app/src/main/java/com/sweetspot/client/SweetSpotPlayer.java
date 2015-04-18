@@ -8,9 +8,15 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketImpl;
+import java.net.SocketImplFactory;
 import java.util.concurrent.TimeUnit;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.media.AudioManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -52,10 +58,29 @@ public class SweetSpotPlayer extends Activity
     private Metadata metadata = new Metadata();
     private ServerEntryData entry;
 
+    // Register and unregister events pertaining to using the headphone jack
+    private AudioManager manager;
+    private BroadcastReceiver hpJackRecv = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if(manager != null) {
+                if (!manager.isWiredHeadsetOn()) {
+                    pause(null);
+                } else {
+                    if (!manager.isMusicActive()) {
+                        play(null);
+                    }
+                }
+            }
+        }
+    };
+    IntentFilter hpJackFilter = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mp = SweetSpotMain.mp;
+        manager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 
         // Get arguments from intent map
         Intent intent = getIntent();
@@ -72,8 +97,22 @@ public class SweetSpotPlayer extends Activity
         //set the layout of the Activity
         setContentView(R.layout.activity_media_player);
 
+        // Register the broadcast receiver for headphones
+        enableHPJackEvents();
+
         //initialize views
         initializeViews();
+
+        // Signal controller to play music from input file on a new thread
+        if(!metadata.filename.equals(SweetSpotMain.currSong)) {
+            SweetSpotMain.currSong = metadata.filename;
+            new PlaySongFromInternet().execute();
+        } else {
+            // Set max song time within view
+            finalTime = mp.getDuration();
+            seekbar.setMax((int) finalTime);
+            updateSeekBar();
+        }
     }
 
     public void initializeViews() {
@@ -83,6 +122,7 @@ public class SweetSpotPlayer extends Activity
         songName.setText(metadata.title);
         prog = (ProgressBar) findViewById(R.id.progressBar);
         prog.setProgress(0);
+
         mp.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mp) {
@@ -90,19 +130,20 @@ public class SweetSpotPlayer extends Activity
                 play(null);
             }
         });
+        mp.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+            @Override
+            public boolean onError(MediaPlayer m, int what, int extra) {
+                return false;
+            }
+        });
 
         // Set up seek bar within view
         duration = (TextView) findViewById(R.id.songDuration);
-        int seconds = metadata.length % 60;
-        duration.setText("0:00 / " + (metadata.length / 60) + ":" + (seconds < 10 ? "0" : "") + seconds);
+        duration.setText("");
         seekbar = (SeekBar) findViewById(R.id.seekBar);
 
         // Listener
         seekbar.setOnSeekBarChangeListener(this);
-
-        // Signal controller to play music from input file on a new thread
-        //Toast.makeText(SweetSpotPlayer.this, "Downloading " + metadata.title + "...", Toast.LENGTH_LONG);
-        new PlaySongFromInternet().execute();
     }
 
     private class PlaySongFromInternet extends AsyncTask<Void, Void, Void> {
@@ -158,7 +199,15 @@ public class SweetSpotPlayer extends Activity
                 FileInputStream fis = openFileInput(Definitions.PLAY_BUFFER_FILE);
                 mp.setDataSource(fis.getFD());
                 fis.close();
-                mp.prepare();
+                while(!mp.isPlaying()) {
+                    try {
+                        mp.prepare();
+                    } catch (IllegalStateException e) {
+                        Log.e("MP Prepare", "" + e.getMessage());
+                    } catch (IOException e) {
+                        Log.e("MP Prepare", "" + e.getMessage());
+                    }
+                }
 
             } catch(IOException e) {
                 String s = e.toString();
@@ -183,7 +232,6 @@ public class SweetSpotPlayer extends Activity
 
         // Start mediaPlayer
         mp.start();
-        //mediaPlayer.start();
 
         // Set max song time within view
         finalTime = mp.getDuration();
@@ -275,4 +323,38 @@ public class SweetSpotPlayer extends Activity
         updateSeekBar();
     }
 
+    @Override
+    public void onStop() {
+        super.onStop();
+        // Register the broadcast receiver for headphones
+        disableHPJackEvents();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        // Register the broadcast receiver for headphones
+        disableHPJackEvents();
+    }
+
+    @Override
+    public void onRestart() {
+        super.onRestart();
+        // Register the broadcast receiver for headphones
+        enableHPJackEvents();
+    }
+
+    private static boolean registered = false;
+    public void enableHPJackEvents() {
+        if(!registered) {
+            //registerReceiver(hpJackRecv, hpJackFilter);
+            registered = true;
+        }
+    }
+    public void disableHPJackEvents() {
+        if(registered) {
+            //unregisterReceiver(hpJackRecv);
+            registered = false;
+        }
+    }
 }
