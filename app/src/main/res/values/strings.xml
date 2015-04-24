@@ -11,9 +11,4 @@
     <string name="action_settings">Server List</string>
     <string name="title_activity_dropbox_file_display">DropboxFileDisplay</string>
 
-    <string-array name="server_type_array">
-        <item>SweetSpot</item>
-        <item>DropBox</item>
-    </string-array>
-
 </resources>

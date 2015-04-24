@@ -23,6 +23,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.dropbox.client2.exception.DropboxException;
@@ -81,12 +82,17 @@ public class SweetSpotMain extends ActionBarActivity {
     // In the class declaration section:
     public static DropboxAPI<AndroidAuthSession> mDBApi;
 
+    // Vars for resuming a song
+    ServerEntryData _curr_entry = null;
+    String _curr_filepath = null;
+    Metadata _curr_meta = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_sweet_spot_main);
         mTitle = getTitle();
         main_instance = this;
+        setContentView(R.layout.activity_sweet_spot_main);
         pg = (ProgressBar) findViewById(R.id.loadingSongsProgressBar);
         pg.setVisibility(View.GONE);
         prefs = getSharedPreferences(Constants.ACCOUNT_PREFS_NAME, 0);
@@ -177,7 +183,6 @@ public class SweetSpotMain extends ActionBarActivity {
 
         // Else if "Refresh" selected ...
         } else if (id == R.id.start_player) {
-            Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
             new PopulateSongListTask().execute();
 
         // Else if "Add Drop Box" selected ...
@@ -223,6 +228,25 @@ public class SweetSpotMain extends ActionBarActivity {
                         });
                 AlertDialog alert2 = builder2.create();
                 alert2.show();
+            }
+        } else if(id == R.id.curr_song) {
+            if(mp.isPlaying()) {
+                String filepath = _curr_filepath;
+                Metadata meta = _curr_meta;
+                ServerEntryData entry = _curr_entry;
+                Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
+                intent.putExtra("filepath", filepath);
+                intent.putExtra("title", meta.title);
+                intent.putExtra("artist", meta.artist);
+                intent.putExtra("album", meta.album);
+                intent.putExtra("filename", meta.filename);
+                intent.putExtra("length", meta.length);
+                intent.putExtra("samplerate", meta.samplerate);
+                intent.putExtra("filesize", meta.filesize);
+                intent.putExtra("name", entry.name);
+                intent.putExtra("url", entry.url);
+                intent.putExtra("port", entry.port);
+                startActivity(intent);
             }
         }
 
@@ -315,6 +339,10 @@ public class SweetSpotMain extends ActionBarActivity {
                     String filepath = songListMap.get(songListTitles.get(position));
                     Metadata meta = file_map.get(filepath);
                     ServerEntryData entry = which_server.get(filepath);
+
+                    _curr_entry = entry;
+                    _curr_meta = meta;
+                    _curr_filepath = filepath;
 
                     Intent intent = new Intent(getApplicationContext(), SweetSpotPlayer.class);
                     intent.putExtra("filepath", filepath);

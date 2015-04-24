@@ -13,4 +13,8 @@
         android:title="Refresh"
         android:orderInCategory="100"
         app:showAsAction="never" />
+    <item android:id="@+id/curr_song"
+        android:title="Current Song"
+        android:orderInCategory="100"
+        app:showAsAction="never" />
 </menu>
